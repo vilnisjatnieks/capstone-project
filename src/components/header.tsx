@@ -16,6 +16,11 @@ export async function Header() {
         <div className="flex items-center gap-4">
           {user ? (
             <>
+              {user.role === "admin" && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/admin">Admin</Link>
+                </Button>
+              )}
               <span className="text-sm text-muted-foreground">
                 {user.name}
               </span>
