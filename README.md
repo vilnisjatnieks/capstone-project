@@ -32,4 +32,5 @@ Open [http://localhost:3000](http://localhost:3000)
 - `npm run dev` - Development server
 - `npm run build` - Build for production
 - `npm test` - Run tests
+- `npm test -- --coverage` - Run tests with coverage
 - `npm run lint` - Run linter
