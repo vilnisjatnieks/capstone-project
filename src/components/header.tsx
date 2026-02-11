@@ -21,6 +21,11 @@ export async function Header() {
                   <Link href="/admin">Admin</Link>
                 </Button>
               )}
+              {(user.role === "admin" || user.role === "staff") && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/staff">Staff</Link>
+                </Button>
+              )}
               <span className="text-sm text-muted-foreground">
                 {user.name}
               </span>
