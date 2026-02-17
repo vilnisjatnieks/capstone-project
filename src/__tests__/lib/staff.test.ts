@@ -1,0 +1,85 @@
+/**
+ * @jest-environment node
+ */
+
+const mockGetCurrentUser = jest.fn();
+jest.mock("@/lib/auth", () => ({
+    getCurrentUser: () => mockGetCurrentUser(),
+}));
+
+jest.mock("next/headers", () => ({
+    cookies: jest.fn(),
+}));
+
+import { requireStaff } from "@/lib/staff";
+
+beforeEach(() => {
+    jest.clearAllMocks();
+});
+
+describe("requireStaff", () => {
+    it("returns 401 when no user is logged in", async () => {
+        mockGetCurrentUser.mockResolvedValue(null);
+
+        const result = await requireStaff();
+
+        expect(result.authorized).toBe(false);
+        if (!result.authorized) {
+            const body = await result.response.json();
+            expect(result.response.status).toBe(401);
+            expect(body.error).toBe("Unauthorized");
+        }
+    });
+
+    it("returns 403 when user role is user", async () => {
+        mockGetCurrentUser.mockResolvedValue({
+            id: "user-1",
+            email: "user@example.com",
+            name: "Regular User",
+            role: "user",
+        });
+
+        const result = await requireStaff();
+
+        expect(result.authorized).toBe(false);
+        if (!result.authorized) {
+            const body = await result.response.json();
+            expect(result.response.status).toBe(403);
+            expect(body.error).toBe("Forbidden");
+        }
+    });
+
+    it("returns authorized when user is staff", async () => {
+        const staffUser = {
+            id: "staff-1",
+            email: "staff@example.com",
+            name: "Staff User",
+            role: "staff",
+        };
+        mockGetCurrentUser.mockResolvedValue(staffUser);
+
+        const result = await requireStaff();
+
+        expect(result.authorized).toBe(true);
+        if (result.authorized) {
+            expect(result.user).toEqual(staffUser);
+        }
+    });
+
+    it("returns authorized when user is admin", async () => {
+        const adminUser = {
+            id: "admin-1",
+            email: "admin@example.com",
+            name: "Admin User",
+            role: "admin",
+        };
+        mockGetCurrentUser.mockResolvedValue(adminUser);
+
+        const result = await requireStaff();
+
+        expect(result.authorized).toBe(true);
+        if (result.authorized) {
+            expect(result.user).toEqual(adminUser);
+        }
+    });
+});
