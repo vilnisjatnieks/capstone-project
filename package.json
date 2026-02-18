@@ -9,11 +9,12 @@
     "lint": "eslint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "migrate": "ts-node --compiler-options '{\"module\":\"commonjs\"}' src/lib/migrate.ts"
+    "migrate": "ts-node --project tsconfig.migrate.json src/lib/migrate.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "dotenv": "^17.2.4",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",

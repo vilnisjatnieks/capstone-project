@@ -232,13 +232,14 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
             <div className="flex items-center gap-4">
                 <Button onClick={openAddDialog}>Add Item</Button>
                 <Input
+                    id="works-search"
                     placeholder="Search by title or publisher..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="max-w-sm"
                 />
-                <Select value={mediaFilter} onValueChange={setMediaFilter}>
-                    <SelectTrigger className="w-[160px]">
+                <Select name="media-filter" value={mediaFilter} onValueChange={setMediaFilter}>
+                    <SelectTrigger id="media-filter" className="w-[160px]">
                         <SelectValue placeholder="Filter media type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -375,14 +376,15 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="media_type">Media Type</Label>
+                                <Label htmlFor="media-type">Media Type</Label>
                                 <Select
+                                    name="media-type"
                                     value={formData.media_type}
                                     onValueChange={(value) =>
                                         setFormData((prev) => ({ ...prev, media_type: value }))
                                     }
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger id="media-type">
                                         <SelectValue placeholder="Select type" />
                                     </SelectTrigger>
                                     <SelectContent>
