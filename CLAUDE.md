@@ -63,7 +63,3 @@ Cookie-based sessions stored in PostgreSQL with scrypt password hashing. Guard h
 - PRs reviewed before merging to `dev`
 - Merge to `main` at end of each sprint
 - 80% line coverage minimum
-
-## Current Sprint (Iteration 2)
-
-Stories: U8, U26, U7, S11, U31, S5, S2, S15, U9, U12
