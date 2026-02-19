@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ScanBarcode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -251,7 +252,13 @@ export function WorkFormDialog({ open, onOpenChange, editingWork, onSaved }: Wor
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="isbn_10">ISBN-10</Label>
+                            <Label htmlFor="isbn_10" className="flex items-center gap-2">
+                                ISBN-10
+                                <ScanBarcode
+                                    className="h-4 w-4 text-muted-foreground"
+                                    title="USB barcode scanners work directly with this field"
+                                />
+                            </Label>
                             <Input
                                 id="isbn_10"
                                 value={formData.isbn_10}
@@ -264,7 +271,13 @@ export function WorkFormDialog({ open, onOpenChange, editingWork, onSaved }: Wor
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="isbn_13">ISBN-13</Label>
+                            <Label htmlFor="isbn_13" className="flex items-center gap-2">
+                                ISBN-13
+                                <ScanBarcode
+                                    className="h-4 w-4 text-muted-foreground"
+                                    title="USB barcode scanners work directly with this field"
+                                />
+                            </Label>
                             <Input
                                 id="isbn_13"
                                 value={formData.isbn_13}
@@ -277,6 +290,9 @@ export function WorkFormDialog({ open, onOpenChange, editingWork, onSaved }: Wor
                             />
                         </div>
                     </div>
+                    <p className="text-xs text-muted-foreground -mt-2">
+                        Tip: USB barcode scanners can be used to quickly enter ISBNs
+                    </p>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="lccn">LCCN</Label>
