@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { findUserByEmail } from "@/lib/data/users";
 import { verifyPassword, createSession } from "@/lib/auth";
 import { cookies } from "next/headers";
 
@@ -15,16 +15,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Look up user by email
-    const result = await query("SELECT * FROM users WHERE email = $1", [email]);
+    const user = await findUserByEmail(email);
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }
       );
     }
-
-    const user = result.rows[0];
 
     // Verify password
     const valid = await verifyPassword(password, user.password_hash);

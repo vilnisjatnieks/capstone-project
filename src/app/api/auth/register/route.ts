@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { findUserByEmail, registerUser } from "@/lib/data/users";
 import { hashPassword, createSession } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { validatePassword, validateEmail } from "@/lib/validation";
@@ -34,11 +34,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if email already exists
-    const existingUser = await query("SELECT id FROM users WHERE email = $1", [
-      email,
-    ]);
+    const existingUser = await findUserByEmail(email);
 
-    if (existingUser.rows.length > 0) {
+    if (existingUser) {
       return NextResponse.json(
         { error: "Email already registered" },
         { status: 409 }
@@ -49,12 +47,7 @@ export async function POST(request: NextRequest) {
     const passwordHash = await hashPassword(password);
 
     // Insert new user
-    const result = await query(
-      "INSERT INTO users (email, name, password_hash) VALUES ($1, $2, $3) RETURNING id, email, name, role",
-      [email, name, passwordHash]
-    );
-
-    const user = result.rows[0];
+    const user = await registerUser(email, name, passwordHash);
 
     // Create session
     const sessionId = await createSession(user.id);

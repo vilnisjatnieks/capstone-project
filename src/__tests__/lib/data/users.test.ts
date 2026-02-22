@@ -24,6 +24,8 @@ import {
     createUser,
     updateUser,
     deleteUser,
+    findUserByEmail,
+    registerUser,
 } from "@/lib/data/users";
 
 const staffUser = {
@@ -51,6 +53,68 @@ beforeEach(() => {
     jest.clearAllMocks();
     mockGetCurrentUser.mockResolvedValue(adminUser);
     mockHashPassword.mockResolvedValue("hashed-password");
+});
+
+// ─── findUserByEmail (unauthenticated) ──────────────────────────────
+
+describe("findUserByEmail", () => {
+    it("returns the user when found", async () => {
+        const userRow = {
+            id: "u1",
+            email: "alice@example.com",
+            name: "Alice",
+            role: "user",
+            password_hash: "salt:hash",
+            created_at: "2026-01-01",
+            updated_at: "2026-01-01",
+        };
+        mockQuery.mockResolvedValue({ rows: [userRow] });
+
+        const result = await findUserByEmail("alice@example.com");
+
+        expect(result).toEqual(userRow);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("SELECT * FROM users WHERE email"),
+            ["alice@example.com"]
+        );
+    });
+
+    it("returns null when user is not found", async () => {
+        mockQuery.mockResolvedValue({ rows: [] });
+
+        const result = await findUserByEmail("nobody@example.com");
+
+        expect(result).toBeNull();
+    });
+});
+
+// ─── registerUser (unauthenticated) ─────────────────────────────────
+
+describe("registerUser", () => {
+    it("inserts a new user and returns the DTO", async () => {
+        const newUser = { id: "u2", email: "bob@example.com", name: "Bob", role: "user" };
+        mockQuery.mockResolvedValue({ rows: [newUser] });
+
+        const result = await registerUser("bob@example.com", "Bob", "hashed-pw");
+
+        expect(result).toEqual(newUser);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("INSERT INTO users"),
+            ["bob@example.com", "Bob", "hashed-pw"]
+        );
+    });
+
+    it("returns the correct RETURNING columns", async () => {
+        const newUser = { id: "u3", email: "carol@example.com", name: "Carol", role: "user" };
+        mockQuery.mockResolvedValue({ rows: [newUser] });
+
+        await registerUser("carol@example.com", "Carol", "hashed-pw");
+
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("RETURNING id, email, name, role"),
+            expect.any(Array)
+        );
+    });
 });
 
 // ─── getAllUsers (staff) ─────────────────────────────────────────────

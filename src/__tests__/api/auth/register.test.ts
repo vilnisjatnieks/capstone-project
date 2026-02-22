@@ -16,9 +16,12 @@ jest.mock("next/headers", () => ({
   cookies: jest.fn(() => mockCookies),
 }));
 
-const mockQuery = jest.fn();
-jest.mock("@/lib/db", () => ({
-  query: (text: string, params?: unknown[]) => mockQuery(text, params),
+const mockFindUserByEmail = jest.fn();
+const mockRegisterUser = jest.fn();
+jest.mock("@/lib/data/users", () => ({
+  findUserByEmail: (email: string) => mockFindUserByEmail(email),
+  registerUser: (email: string, name: string, passwordHash: string) =>
+    mockRegisterUser(email, name, passwordHash),
 }));
 
 import { POST } from "@/app/api/auth/register/route";
@@ -120,7 +123,7 @@ describe("POST /api/auth/register", () => {
   });
 
   it("returns 409 when email already exists", async () => {
-    mockQuery.mockResolvedValue({ rows: [{ id: "existing-user" }] });
+    mockFindUserByEmail.mockResolvedValue({ id: "existing-user", email: "existing@example.com" });
 
     const res = await POST(makeRequest({
       email: "existing@example.com",
@@ -141,9 +144,8 @@ describe("POST /api/auth/register", () => {
       role: "user",
     };
 
-    mockQuery
-      .mockResolvedValueOnce({ rows: [] }) // email uniqueness check
-      .mockResolvedValueOnce({ rows: [newUser] }); // insert user
+    mockFindUserByEmail.mockResolvedValue(null);
+    mockRegisterUser.mockResolvedValue(newUser);
 
     const res = await POST(makeRequest({
       email: "new@example.com",
@@ -165,9 +167,8 @@ describe("POST /api/auth/register", () => {
       role: "user",
     };
 
-    mockQuery
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [newUser] });
+    mockFindUserByEmail.mockResolvedValue(null);
+    mockRegisterUser.mockResolvedValue(newUser);
 
     await POST(makeRequest({
       email: "new@example.com",
@@ -191,12 +192,10 @@ describe("POST /api/auth/register", () => {
       email: "new@example.com",
       name: "John Doe",
       role: "user",
-      password_hash: "should-not-be-exposed",
     };
 
-    mockQuery
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [newUser] });
+    mockFindUserByEmail.mockResolvedValue(null);
+    mockRegisterUser.mockResolvedValue(newUser);
 
     const res = await POST(makeRequest({
       email: "new@example.com",
@@ -209,7 +208,7 @@ describe("POST /api/auth/register", () => {
   });
 
   it("returns 500 on database error", async () => {
-    mockQuery.mockRejectedValue(new Error("Database error"));
+    mockFindUserByEmail.mockRejectedValue(new Error("Database error"));
 
     const res = await POST(makeRequest({
       email: "new@example.com",
