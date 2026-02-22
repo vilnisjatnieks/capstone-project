@@ -41,6 +41,7 @@ interface Work {
     number_of_pages: number | null;
     language: string | null;
     location: string | null;
+    call_number: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -105,7 +106,7 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
     return (
         <div className="space-y-4">
             <div className="flex items-center gap-4">
-                <Button onClick={openAddDialog}>Add Item</Button>
+                <Button onClick={openAddDialog}>Add Work</Button>
                 <Input
                     id="works-search"
                     placeholder="Search by title or publisher..."
@@ -133,7 +134,7 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
                     <TableRow>
                         <TableHead>Title</TableHead>
                         <TableHead>Publisher</TableHead>
-                        <TableHead>Media Type</TableHead>
+                        <TableHead>Call Number</TableHead>
                         <TableHead>Date Published</TableHead>
                         <TableHead>Pages</TableHead>
                         <TableHead>Location</TableHead>
@@ -152,8 +153,8 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
                             <TableRow key={work.id}>
                                 <TableCell className="font-medium">{work.title}</TableCell>
                                 <TableCell>{work.publisher ?? "—"}</TableCell>
-                                <TableCell>{work.media_type ?? "—"}</TableCell>
-                                <TableCell>{work.date_published ? new Date(work.date_published).toLocaleDateString() : "—"}</TableCell>
+                                <TableCell>{work.call_number ?? "—"}</TableCell>
+                                <TableCell>{work.date_published ? work.date_published : "—"}</TableCell>
                                 <TableCell>{work.number_of_pages ?? "—"}</TableCell>
                                 <TableCell>{work.location ?? "—"}</TableCell>
                                 <TableCell>
