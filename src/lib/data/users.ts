@@ -17,7 +17,7 @@ export interface UserAdminDTO {
     id: string;
     email: string;
     name: string;
-    role: string;
+    role: "admin" | "staff" | "user";
     created_at: string;
     updated_at: string;
 }
@@ -60,6 +60,43 @@ async function requireAdminUser() {
         throw new Error("Forbidden");
     }
     return user;
+}
+
+// ---------------------------------------------------------------------------
+// Unauthenticated helpers (used by auth flow)
+// ---------------------------------------------------------------------------
+
+export interface UserRow {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    password_hash: string;
+    created_at: string;
+    updated_at: string;
+}
+
+/** Find a user by email. Returns the full row (incl. password_hash) or null. */
+export async function findUserByEmail(email: string): Promise<UserRow | null> {
+    const result = await query(
+        "SELECT * FROM users WHERE email = $1",
+        [email]
+    );
+    if (result.rows.length === 0) return null;
+    return result.rows[0] as UserRow;
+}
+
+/** Register a new user (self-service). Returns the created user DTO. */
+export async function registerUser(
+    email: string,
+    name: string,
+    passwordHash: string
+): Promise<{ id: string; email: string; name: string; role: string }> {
+    const result = await query(
+        "INSERT INTO users (email, name, password_hash) VALUES ($1, $2, $3) RETURNING id, email, name, role",
+        [email, name, passwordHash]
+    );
+    return result.rows[0];
 }
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { query } from "@/lib/db";
+import { getAdminAllUsers } from "@/lib/data/users";
 import { AdminUsersClient } from "./admin-users-client";
 
 export default async function AdminPage() {
@@ -10,15 +10,13 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const result = await query(
-    "SELECT id, email, name, role, created_at, updated_at FROM users ORDER BY created_at DESC"
-  );
+  const users = await getAdminAllUsers();
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold">User Management</h1>
       <AdminUsersClient
-        initialUsers={result.rows}
+        initialUsers={users}
         currentUserId={user.id}
       />
     </div>

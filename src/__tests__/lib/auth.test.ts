@@ -9,10 +9,15 @@ jest.mock("next/headers", () => ({
   cookies: () => mockCookies(),
 }));
 
-// Mock database
-const mockQuery = jest.fn();
-jest.mock("@/lib/db", () => ({
-  query: (text: string, params?: unknown[]) => mockQuery(text, params),
+// Mock sessions DAL
+const mockDalCreateSession = jest.fn();
+const mockDalDeleteSession = jest.fn();
+const mockGetSessionWithUser = jest.fn();
+jest.mock("@/lib/data/sessions", () => ({
+  createSession: (userId: string, expiresAt: Date) =>
+    mockDalCreateSession(userId, expiresAt),
+  deleteSession: (sessionId: string) => mockDalDeleteSession(sessionId),
+  getSessionWithUser: (sessionId: string) => mockGetSessionWithUser(sessionId),
 }));
 
 import {
@@ -69,29 +74,26 @@ describe("auth", () => {
   });
 
   describe("createSession", () => {
-    it("inserts a session and returns the id", async () => {
-      mockQuery.mockResolvedValue({ rows: [{ id: "session-123" }] });
+    it("delegates to sessions DAL and returns the id", async () => {
+      mockDalCreateSession.mockResolvedValue("session-123");
 
       const result = await createSession("user-456");
 
       expect(result).toBe("session-123");
-      expect(mockQuery).toHaveBeenCalledWith(
-        "INSERT INTO sessions (user_id, expires_at) VALUES ($1, $2) RETURNING id",
-        ["user-456", expect.any(Date)]
+      expect(mockDalCreateSession).toHaveBeenCalledWith(
+        "user-456",
+        expect.any(Date)
       );
     });
   });
 
   describe("deleteSession", () => {
-    it("deletes a session by id", async () => {
-      mockQuery.mockResolvedValue({ rows: [] });
+    it("delegates to sessions DAL", async () => {
+      mockDalDeleteSession.mockResolvedValue(undefined);
 
       await deleteSession("session-123");
 
-      expect(mockQuery).toHaveBeenCalledWith(
-        "DELETE FROM sessions WHERE id = $1",
-        ["session-123"]
-      );
+      expect(mockDalDeleteSession).toHaveBeenCalledWith("session-123");
     });
   });
 
@@ -106,7 +108,7 @@ describe("auth", () => {
 
     it("returns null when session is expired or not found", async () => {
       mockGet.mockReturnValue({ value: "session-123" });
-      mockQuery.mockResolvedValue({ rows: [] });
+      mockGetSessionWithUser.mockResolvedValue(null);
 
       const user = await getCurrentUser();
 
@@ -123,15 +125,12 @@ describe("auth", () => {
         updated_at: new Date(),
       };
       mockGet.mockReturnValue({ value: "session-123" });
-      mockQuery.mockResolvedValue({ rows: [mockUser] });
+      mockGetSessionWithUser.mockResolvedValue(mockUser);
 
       const user = await getCurrentUser();
 
       expect(user).toEqual(mockUser);
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining("JOIN sessions"),
-        ["session-123"]
-      );
+      expect(mockGetSessionWithUser).toHaveBeenCalledWith("session-123");
     });
   });
 });
