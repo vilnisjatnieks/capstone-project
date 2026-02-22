@@ -283,4 +283,105 @@ describe("PUT /api/staff/checkouts/[id]", () => {
         const res = await PUT(req, makeParams("c999"));
         expect(res.status).toBe(404);
     });
+
+    it("returns 403 when user role is forbidden", async () => {
+        mockGetCurrentUser.mockResolvedValue({ ...staffUser, role: "user" });
+        const req = new NextRequest(
+            "http://localhost:3000/api/staff/checkouts/c1",
+            {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "return" }),
+            }
+        );
+        const res = await PUT(req, makeParams("c1"));
+        expect(res.status).toBe(403);
+    });
+});
+
+describe("Forbidden access tests (checkouts)", () => {
+    beforeEach(() => {
+        mockGetCurrentUser.mockResolvedValue({ ...staffUser, role: "user" });
+    });
+
+    it("GET /api/staff/checkouts returns 403 for non-staff", async () => {
+        const res = await GET();
+        expect(res.status).toBe(403);
+    });
+
+    it("POST /api/staff/checkouts returns 403 for non-staff", async () => {
+        const req = new NextRequest(
+            "http://localhost:3000/api/staff/checkouts",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    work_id: "w1",
+                    user_id: "u1",
+                    due_date: "2026-03-01",
+                }),
+            }
+        );
+        const res = await POST(req);
+        expect(res.status).toBe(403);
+    });
+
+    it("GET /api/staff/checkouts/[id] returns 403 for non-staff", async () => {
+        const req = new NextRequest(
+            "http://localhost:3000/api/staff/checkouts/c1",
+            { method: "GET" }
+        );
+        const res = await GET_ONE(req, makeParams("c1"));
+        expect(res.status).toBe(403);
+    });
+});
+
+describe("500 error handling (checkouts)", () => {
+    it("GET /api/staff/checkouts returns 500 on unexpected error", async () => {
+        mockGetCurrentUser.mockRejectedValue("unexpected");
+        const res = await GET();
+        expect(res.status).toBe(500);
+    });
+
+    it("POST /api/staff/checkouts returns 500 on unexpected error", async () => {
+        mockGetCurrentUser.mockRejectedValue("unexpected");
+        const req = new NextRequest(
+            "http://localhost:3000/api/staff/checkouts",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    work_id: "w1",
+                    user_id: "u1",
+                    due_date: "2026-03-01",
+                }),
+            }
+        );
+        const res = await POST(req);
+        expect(res.status).toBe(500);
+    });
+
+    it("GET /api/staff/checkouts/[id] returns 500 on unexpected error", async () => {
+        mockGetCurrentUser.mockRejectedValue("unexpected");
+        const req = new NextRequest(
+            "http://localhost:3000/api/staff/checkouts/c1",
+            { method: "GET" }
+        );
+        const res = await GET_ONE(req, makeParams("c1"));
+        expect(res.status).toBe(500);
+    });
+
+    it("PUT /api/staff/checkouts/[id] returns 500 on unexpected error", async () => {
+        mockGetCurrentUser.mockRejectedValue("unexpected");
+        const req = new NextRequest(
+            "http://localhost:3000/api/staff/checkouts/c1",
+            {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "return" }),
+            }
+        );
+        const res = await PUT(req, makeParams("c1"));
+        expect(res.status).toBe(500);
+    });
 });

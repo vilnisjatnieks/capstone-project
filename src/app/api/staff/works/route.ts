@@ -1,73 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
-import { requireStaff } from "@/lib/staff";
+import { getAllWorks, createWork } from "@/lib/data/works";
 
 export async function GET() {
-    const check = await requireStaff();
-    if (!check.authorized) return check.response;
-
-    const result = await query(
-        `SELECT id, created_at, title, date_published, publisher, editor,
-            lccn, isbn_10, isbn_13, media_type, number_of_pages, language,
-            location, updated_at
-     FROM works ORDER BY created_at DESC`
-    );
-
-    return NextResponse.json(result.rows);
+    try {
+        const works = await getAllWorks();
+        return NextResponse.json(works);
+    } catch (error) {
+        const message =
+            error instanceof Error ? error.message : "Internal server error";
+        if (message === "Unauthorized") {
+            return NextResponse.json({ error: message }, { status: 401 });
+        }
+        if (message === "Forbidden") {
+            return NextResponse.json({ error: message }, { status: 403 });
+        }
+        return NextResponse.json({ error: message }, { status: 500 });
+    }
 }
 
 export async function POST(request: NextRequest) {
-    const check = await requireStaff();
-    if (!check.authorized) return check.response;
+    try {
+        const body = await request.json();
 
-    const body = await request.json();
-    const {
-        title,
-        date_published,
-        publisher,
-        cover,
-        editor,
-        lccn,
-        isbn_10,
-        isbn_13,
-        media_type,
-        number_of_pages,
-        language,
-        location,
-    } = body;
+        if (!body.title) {
+            return NextResponse.json(
+                { error: "Title is required" },
+                { status: 400 }
+            );
+        }
 
-    if (!title) {
-        return NextResponse.json(
-            { error: "Title is required" },
-            { status: 400 }
-        );
+        const work = await createWork(body);
+        return NextResponse.json(work, { status: 201 });
+    } catch (error) {
+        const message =
+            error instanceof Error ? error.message : "Internal server error";
+        if (message === "Unauthorized") {
+            return NextResponse.json({ error: message }, { status: 401 });
+        }
+        if (message === "Forbidden") {
+            return NextResponse.json({ error: message }, { status: 403 });
+        }
+        return NextResponse.json({ error: message }, { status: 500 });
     }
-
-    const coverBuffer = cover ? Buffer.from(cover, "base64") : null;
-
-    const result = await query(
-        `INSERT INTO works (title, date_published, publisher, cover, editor,
-                        lccn, isbn_10, isbn_13, media_type, number_of_pages,
-                        language, location)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-     RETURNING id, created_at, title, date_published, publisher, editor,
-               lccn, isbn_10, isbn_13, media_type, number_of_pages, language,
-               location, updated_at`,
-        [
-            title,
-            date_published || null,
-            publisher || null,
-            coverBuffer,
-            editor || null,
-            lccn || null,
-            isbn_10 || null,
-            isbn_13 || null,
-            media_type || null,
-            number_of_pages || null,
-            language || null,
-            location || null,
-        ]
-    );
-
-    return NextResponse.json(result.rows[0], { status: 201 });
 }

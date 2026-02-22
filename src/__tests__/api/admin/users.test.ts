@@ -292,4 +292,57 @@ describe("DELETE /api/admin/users/[id]", () => {
     const res = await DELETE(req, makeParams("nonexistent"));
     expect(res.status).toBe(404);
   });
+
+  it("returns 403 when not admin", async () => {
+    mockGetCurrentUser.mockResolvedValue({ ...adminUser, role: "staff" });
+    const req = new NextRequest("http://localhost:3000/api/admin/users/1", {
+      method: "DELETE",
+    });
+    const res = await DELETE(req, makeParams("user-2"));
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("Forbidden access tests (admin)", () => {
+  beforeEach(() => {
+    mockGetCurrentUser.mockResolvedValue({ ...adminUser, role: "staff" });
+  });
+
+  it("GET /api/admin/users returns 403 for non-admin", async () => {
+    const res = await GET();
+    expect(res.status).toBe(403);
+  });
+
+  it("POST /api/admin/users returns 403 for non-admin", async () => {
+    const res = await POST(
+      makeRequest({ email: "a@b.com", name: "A", password: "pass123" })
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("PUT /api/admin/users/[id] returns 403 for non-admin", async () => {
+    const req = new NextRequest("http://localhost:3000/api/admin/users/1", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "New Name" }),
+    });
+    const res = await PUT(req, makeParams("user-2"));
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("500 error handling (admin)", () => {
+  it("GET /api/admin/users returns 500 on unexpected error", async () => {
+    mockGetCurrentUser.mockRejectedValue("unexpected");
+    const res = await GET();
+    expect(res.status).toBe(500);
+  });
+
+  it("POST /api/admin/users returns 500 on unexpected error", async () => {
+    mockGetCurrentUser.mockRejectedValue("unexpected");
+    const res = await POST(
+      makeRequest({ email: "a@b.com", name: "A", password: "pass123" })
+    );
+    expect(res.status).toBe(500);
+  });
 });

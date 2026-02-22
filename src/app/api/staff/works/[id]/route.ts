@@ -1,128 +1,76 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
-import { requireStaff } from "@/lib/staff";
+import { getWorkById, updateWork, deleteWork } from "@/lib/data/works";
+
+function mapErrorToResponse(error: unknown): NextResponse {
+    const message =
+        error instanceof Error ? error.message : "Internal server error";
+    if (message === "Unauthorized") {
+        return NextResponse.json({ error: message }, { status: 401 });
+    }
+    if (message === "Forbidden") {
+        return NextResponse.json({ error: message }, { status: 403 });
+    }
+    if (message === "At least one field is required") {
+        return NextResponse.json({ error: message }, { status: 400 });
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
+}
 
 export async function GET(
     _request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const check = await requireStaff();
-    if (!check.authorized) return check.response;
+    try {
+        const { id } = await params;
+        const work = await getWorkById(id);
 
-    const { id } = await params;
+        if (!work) {
+            return NextResponse.json({ error: "Work not found" }, { status: 404 });
+        }
 
-    const result = await query(
-        `SELECT id, created_at, title, date_published, publisher,
-            encode(cover, 'base64') as cover,
-            editor, lccn, isbn_10, isbn_13, media_type, number_of_pages,
-            language, location, updated_at
-     FROM works WHERE id = $1`,
-        [id]
-    );
-
-    if (result.rows.length === 0) {
-        return NextResponse.json({ error: "Work not found" }, { status: 404 });
+        return NextResponse.json(work);
+    } catch (error) {
+        return mapErrorToResponse(error);
     }
-
-    return NextResponse.json(result.rows[0]);
 }
 
 export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const check = await requireStaff();
-    if (!check.authorized) return check.response;
+    try {
+        const { id } = await params;
+        const body = await request.json();
 
-    const { id } = await params;
-    const body = await request.json();
-    const {
-        title,
-        date_published,
-        publisher,
-        cover,
-        editor,
-        lccn,
-        isbn_10,
-        isbn_13,
-        media_type,
-        number_of_pages,
-        language,
-        location,
-    } = body;
+        const work = await updateWork(id, body);
 
-    const updatableFields: Record<string, unknown> = {
-        title,
-        date_published,
-        publisher,
-        editor,
-        lccn,
-        isbn_10,
-        isbn_13,
-        media_type,
-        number_of_pages,
-        language,
-        location,
-    };
-
-    // Handle cover separately since it needs base64 decoding
-    if (cover !== undefined) {
-        updatableFields.cover = cover ? Buffer.from(cover, "base64") : null;
-    }
-
-    const fields: string[] = [];
-    const values: unknown[] = [];
-    let paramIndex = 1;
-
-    for (const [key, value] of Object.entries(updatableFields)) {
-        if (value !== undefined) {
-            fields.push(`${key} = $${paramIndex++}`);
-            values.push(value);
+        if (!work) {
+            return NextResponse.json(
+                { error: "Work not found" },
+                { status: 404 }
+            );
         }
+
+        return NextResponse.json(work);
+    } catch (error) {
+        return mapErrorToResponse(error);
     }
-
-    if (fields.length === 0) {
-        return NextResponse.json(
-            { error: "At least one field is required" },
-            { status: 400 }
-        );
-    }
-
-    fields.push(`updated_at = NOW()`);
-    values.push(id);
-
-    const result = await query(
-        `UPDATE works SET ${fields.join(", ")} WHERE id = $${paramIndex}
-     RETURNING id, created_at, title, date_published, publisher, editor,
-               lccn, isbn_10, isbn_13, media_type, number_of_pages, language,
-               location, updated_at`,
-        values
-    );
-
-    if (result.rows.length === 0) {
-        return NextResponse.json({ error: "Work not found" }, { status: 404 });
-    }
-
-    return NextResponse.json(result.rows[0]);
 }
 
 export async function DELETE(
     _request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const check = await requireStaff();
-    if (!check.authorized) return check.response;
+    try {
+        const { id } = await params;
+        const deleted = await deleteWork(id);
 
-    const { id } = await params;
+        if (!deleted) {
+            return NextResponse.json({ error: "Work not found" }, { status: 404 });
+        }
 
-    const result = await query(
-        "DELETE FROM works WHERE id = $1 RETURNING id",
-        [id]
-    );
-
-    if (result.rows.length === 0) {
-        return NextResponse.json({ error: "Work not found" }, { status: 404 });
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        return mapErrorToResponse(error);
     }
-
-    return NextResponse.json({ success: true });
 }
