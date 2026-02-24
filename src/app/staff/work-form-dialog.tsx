@@ -131,19 +131,19 @@ export function WorkFormDialog({ open, onOpenChange, editingWork, onSaved, autoF
                 return;
             }
 
-            // Auto-fill form with lookup data
-            setFormData((prev) => ({
-                ...prev,
-                title: data.title || prev.title,
-                publisher: data.publisher || prev.publisher,
-                date_published: data.date_published || prev.date_published,
-                isbn_10: data.isbn_10 || prev.isbn_10,
-                isbn_13: data.isbn_13 || prev.isbn_13,
-                lccn: data.lccn || prev.lccn,
-                number_of_pages: data.number_of_pages?.toString() || prev.number_of_pages,
-                language: data.language || prev.language,
-                media_type: data.media_type || prev.media_type,
-                call_number: data.call_number || prev.call_number,
+            // Auto-fill form: clear all fields first, then populate with lookup data
+            setFormData(() => ({
+                ...emptyForm,
+                title: data.title || "",
+                publisher: data.publisher || "",
+                date_published: data.date_published || "",
+                isbn_10: data.isbn_10 || "",
+                isbn_13: data.isbn_13 || "",
+                lccn: data.lccn || "",
+                number_of_pages: data.number_of_pages?.toString() || "",
+                language: data.language || "",
+                media_type: data.media_type || "",
+                call_number: data.call_number || "",
             }));
 
             setLookupMessage({

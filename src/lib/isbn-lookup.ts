@@ -204,21 +204,34 @@ export async function lookupByISBN(raw: string): Promise<LookupResult> {
         throw new Error(`Invalid ISBN: ${isbn}`);
     }
 
+    let result: LookupResult | null = null;
+
     // Try Google Books first
     try {
-        const google = await fetchFromGoogle(isbn);
-        if (google) return google;
+        result = await fetchFromGoogle(isbn);
     } catch {
         // Google failed — fall through to Open Library
     }
 
     // Fallback to Open Library
-    try {
-        const ol = await fetchFromOpenLibrary(isbn);
-        if (ol) return ol;
-    } catch {
-        // Open Library also failed
+    if (!result) {
+        try {
+            result = await fetchFromOpenLibrary(isbn);
+        } catch {
+            // Open Library also failed
+        }
     }
 
-    throw new Error(`No results found for ISBN ${isbn}`);
+    if (!result) {
+        throw new Error(`No results found for ISBN ${isbn}`);
+    }
+
+    // Backfill: ensure the entered ISBN populates its own field
+    if (isbn.length === 10 && !result.isbn_10) {
+        result.isbn_10 = isbn;
+    } else if (isbn.length === 13 && !result.isbn_13) {
+        result.isbn_13 = isbn;
+    }
+
+    return result;
 }

@@ -420,4 +420,68 @@ describe("lookupByISBN", () => {
         const result = await lookupByISBN("012345678X");
         expect(result.title).toBe("X Book");
     });
+
+    it("backfills isbn_13 when API only returns isbn_10", async () => {
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                totalItems: 1,
+                items: [{
+                    volumeInfo: {
+                        title: "Harry Potter",
+                        industryIdentifiers: [
+                            { type: "ISBN_10", identifier: "0590353427" },
+                        ],
+                    },
+                }],
+            }),
+        });
+
+        const result = await lookupByISBN("9780590353427");
+        expect(result.isbn_10).toBe("0590353427");
+        expect(result.isbn_13).toBe("9780590353427");
+    });
+
+    it("backfills isbn_10 when API only returns isbn_13", async () => {
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                totalItems: 1,
+                items: [{
+                    volumeInfo: {
+                        title: "The Hunger Games",
+                        industryIdentifiers: [
+                            { type: "ISBN_13", identifier: "9780439023481" },
+                        ],
+                    },
+                }],
+            }),
+        });
+
+        const result = await lookupByISBN("0439023483");
+        expect(result.isbn_13).toBe("9780439023481");
+        expect(result.isbn_10).toBe("0439023483");
+    });
+
+    it("does not overwrite existing isbn fields during backfill", async () => {
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                totalItems: 1,
+                items: [{
+                    volumeInfo: {
+                        title: "Both ISBNs Present",
+                        industryIdentifiers: [
+                            { type: "ISBN_10", identifier: "0140328726" },
+                            { type: "ISBN_13", identifier: "9780140328721" },
+                        ],
+                    },
+                }],
+            }),
+        });
+
+        const result = await lookupByISBN("9780140328721");
+        expect(result.isbn_10).toBe("0140328726");
+        expect(result.isbn_13).toBe("9780140328721");
+    });
 });
