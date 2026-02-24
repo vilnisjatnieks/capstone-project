@@ -53,6 +53,10 @@ interface StaffCheckoutsClientProps {
   users: User[];
 }
 
+function isOverdue(checkout: Checkout) {
+  return !checkout.returned_at && new Date(checkout.due_date) < new Date();
+}
+
 export function StaffCheckoutsClient({
   initialCheckouts,
   works,
@@ -91,18 +95,15 @@ export function StaffCheckoutsClient({
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "active" && !c.returned_at) ||
-        (statusFilter === "returned" && c.returned_at);
-      return matchesSearch && matchesStatus;
+        (statusFilter === "returned" && c.returned_at) ||
+        (statusFilter === "overdue" && isOverdue(c));
+      return matchesStatus && matchesSearch;
     });
   }, [checkouts, search, statusFilter]);
 
   function openReturnDialog(checkout: Checkout) {
     setReturningCheckout(checkout);
     setReturnOpen(true);
-  }
-
-  function isOverdue(checkout: Checkout) {
-    return !checkout.returned_at && new Date(checkout.due_date) < new Date();
   }
 
   return (
@@ -126,6 +127,7 @@ export function StaffCheckoutsClient({
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
             <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="overdue">Overdue</SelectItem>
             <SelectItem value="returned">Returned</SelectItem>
           </SelectContent>
         </Select>
@@ -138,23 +140,18 @@ export function StaffCheckoutsClient({
             <TableHead>Borrower</TableHead>
             <TableHead>Checked Out</TableHead>
             <TableHead>Due Date</TableHead>
-            {statusFilter === "returned" ? (
+            {statusFilter === "returned" && (
               <TableHead>Returned</TableHead>
-            ) : statusFilter === "all" ? (
-              <>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[100px]">Actions</TableHead>
-              </>
-            ) : (
-              <TableHead className="w-[100px]">Actions</TableHead>
             )}
+            <TableHead>Status</TableHead>
+            <TableHead className="w-[100px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filteredCheckouts.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={statusFilter === "all" ? 6 : 5}
+                colSpan={statusFilter === "returned" ? 7 : 6}
                 className="text-center text-muted-foreground"
               >
                 No checkouts found.
@@ -168,9 +165,12 @@ export function StaffCheckoutsClient({
                 </TableCell>
                 <TableCell>
                   {checkout.user_name}
-                  <span className="block text-xs text-muted-foreground">
+                  <a
+                    href={`mailto:${checkout.user_email}`}
+                    className="block text-xs text-muted-foreground hover:underline"
+                  >
                     {checkout.user_email}
-                  </span>
+                  </a>
                 </TableCell>
                 <TableCell>
                   {new Date(checkout.checked_out_at).toLocaleDateString()}
@@ -178,48 +178,33 @@ export function StaffCheckoutsClient({
                 <TableCell>
                   {new Date(checkout.due_date).toLocaleDateString()}
                 </TableCell>
-                {statusFilter === "returned" ? (
+                {statusFilter === "returned" && (
                   <TableCell>
                     {checkout.returned_at
                       ? new Date(checkout.returned_at).toLocaleDateString()
                       : "—"}
                   </TableCell>
-                ) : statusFilter === "all" ? (
-                  <>
-                    <TableCell>
-                      {checkout.returned_at ? (
-                        <Badge variant="secondary">Returned</Badge>
-                      ) : isOverdue(checkout) ? (
-                        <Badge variant="destructive">Overdue</Badge>
-                      ) : (
-                        <Badge>Active</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {!checkout.returned_at && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openReturnDialog(checkout)}
-                        >
-                          Return
-                        </Button>
-                      )}
-                    </TableCell>
-                  </>
-                ) : (
-                  <TableCell>
-                    {!checkout.returned_at && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openReturnDialog(checkout)}
-                      >
-                        Return
-                      </Button>
-                    )}
-                  </TableCell>
                 )}
+                <TableCell>
+                  {checkout.returned_at ? (
+                    <Badge variant="secondary">Returned</Badge>
+                  ) : isOverdue(checkout) ? (
+                    <Badge variant="destructive">Overdue</Badge>
+                  ) : (
+                    <Badge>Active</Badge>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {!checkout.returned_at && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openReturnDialog(checkout)}
+                    >
+                      Return
+                    </Button>
+                  )}
+                </TableCell>
               </TableRow>
             ))
           )}

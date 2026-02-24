@@ -91,6 +91,18 @@ export async function getCheckoutById(
     return result.rows[0] as CheckoutDTO;
 }
 
+/** Check if a specific work is currently checked out. Return true if checked out. */
+export async function isWorkCheckedOut(workId: string): Promise<boolean> {
+    await requireStaffUser();
+
+    const activeCheckout = await query(
+        "SELECT id FROM checkouts WHERE work_id = $1 AND returned_at IS NULL",
+        [workId]
+    );
+
+    return activeCheckout.rows.length > 0;
+}
+
 // ---------------------------------------------------------------------------
 // Write operations
 // ---------------------------------------------------------------------------
