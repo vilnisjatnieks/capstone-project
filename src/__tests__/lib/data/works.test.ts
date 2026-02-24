@@ -23,6 +23,7 @@ import {
     createWork,
     updateWork,
     deleteWork,
+    getPublicWorkById,
 } from "@/lib/data/works";
 
 const staffUser = {
@@ -136,6 +137,34 @@ describe("getWorkById", () => {
         mockQuery.mockResolvedValue({ rows: [] });
 
         const result = await getWorkById("w999");
+
+        expect(result).toBeNull();
+    });
+});
+
+// ─── getPublicWorkById ────────────────────────────────────────────────
+
+describe("getPublicWorkById", () => {
+    it("returns a work with cover data without throwing Unauthorized", async () => {
+        // Even if user is null, it should not throw
+        mockGetCurrentUser.mockResolvedValue(null);
+
+        const work = { id: "w1", title: "Book A", cover: "base64data" };
+        mockQuery.mockResolvedValue({ rows: [work] });
+
+        const result = await getPublicWorkById("w1");
+
+        expect(result).toEqual(work);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("encode(cover"),
+            ["w1"]
+        );
+    });
+
+    it("returns null when work not found", async () => {
+        mockQuery.mockResolvedValue({ rows: [] });
+
+        const result = await getPublicWorkById("w999");
 
         expect(result).toBeNull();
     });
