@@ -1,0 +1,35 @@
+﻿node.exe : PASS src/__tests__/lib/is
+bn-lookup.test.ts
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" "C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSp 
+   ecified: (PASS src/__test...-lo  
+  okup.test.ts:String) [], Remote   
+ Exception
+    + FullyQualifiedErrorId : Nativ 
+   eCommandError
+ 
+PASS src/__tests__/api/staff/isbn-lo
+okup-route.test.ts
+----------------------------|---------|----------|---------|---------|-------------------
+File                        | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+----------------------------|---------|----------|---------|---------|-------------------
+All files                   |     100 |      100 |     100 |     100 |                   
+ app/api/staff/works/lookup |     100 |      100 |     100 |     100 |                   
+  route.ts                  |     100 |      100 |     100 |     100 |                   
+ lib                        |     100 |      100 |     100 |     100 |                   
+  isbn-lookup.ts            |     100 |      100 |     100 |     100 |                   
+----------------------------|---------|----------|---------|---------|-------------------
+
+Test Suites: 2 passed, 2 total
+Tests:       47 passed, 47 total
+Snapshots:   0 total
+Time:        1.871 s
+Ran all test suites matching src/__t
+ests__/lib/isbn-lookup.test.ts|src/_
+_tests__/api/staff/isbn-lookup-route
+.test.ts.

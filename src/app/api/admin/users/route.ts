@@ -18,7 +18,7 @@ function mapErrorToResponse(error: unknown): NextResponse {
   }
   return NextResponse.json({ error: message }, { status: 500 });
 }
-
+  
 export async function GET() {
   try {
     const users = await getAdminAllUsers();

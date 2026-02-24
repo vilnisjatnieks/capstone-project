@@ -20,6 +20,7 @@ export interface WorkDTO {
     number_of_pages: number | null;
     language: string | null;
     location: string | null;
+    call_number: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -41,6 +42,7 @@ export interface CreateWorkInput {
     number_of_pages?: number | null;
     language?: string | null;
     location?: string | null;
+    call_number?: string | null;
 }
 
 export interface UpdateWorkInput {
@@ -56,6 +58,7 @@ export interface UpdateWorkInput {
     number_of_pages?: number | null;
     language?: string | null;
     location?: string | null;
+    call_number?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -84,7 +87,7 @@ export async function getAllWorks(): Promise<WorkDTO[]> {
     const result = await query(
         `SELECT id, created_at, title, date_published, publisher, editor,
                 lccn, isbn_10, isbn_13, media_type, number_of_pages, language,
-                location, updated_at
+                location, call_number, updated_at
          FROM works ORDER BY created_at DESC`
     );
 
@@ -99,7 +102,7 @@ export async function getWorkById(id: string): Promise<WorkWithCoverDTO | null> 
         `SELECT id, created_at, title, date_published, publisher,
                 encode(cover, 'base64') as cover,
                 editor, lccn, isbn_10, isbn_13, media_type, number_of_pages,
-                language, location, updated_at
+                language, location, call_number, updated_at
          FROM works WHERE id = $1`,
         [id]
     );
@@ -142,7 +145,7 @@ export async function searchWorks(params: {
     const result = await query(
         `SELECT id, title, date_published, publisher, editor,
                 lccn, isbn_10, isbn_13, media_type, number_of_pages,
-                language, location
+                language, location, call_number
          FROM works ${whereClause}
          ORDER BY title ASC`,
         values.length > 0 ? values : undefined
@@ -164,11 +167,11 @@ export async function createWork(input: CreateWorkInput): Promise<WorkDTO> {
     const result = await query(
         `INSERT INTO works (title, date_published, publisher, cover, editor,
                         lccn, isbn_10, isbn_13, media_type, number_of_pages,
-                        language, location)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                        language, location, call_number)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          RETURNING id, created_at, title, date_published, publisher, editor,
                    lccn, isbn_10, isbn_13, media_type, number_of_pages, language,
-                   location, updated_at`,
+                   location, call_number, updated_at`,
         [
             input.title,
             input.date_published || null,
@@ -182,6 +185,7 @@ export async function createWork(input: CreateWorkInput): Promise<WorkDTO> {
             input.number_of_pages || null,
             input.language || null,
             input.location || null,
+            input.call_number || null,
         ]
     );
 
@@ -207,6 +211,7 @@ export async function updateWork(
         number_of_pages: input.number_of_pages,
         language: input.language,
         location: input.location,
+        call_number: input.call_number,
     };
 
     // Handle cover separately since it needs base64 decoding
@@ -238,7 +243,7 @@ export async function updateWork(
         `UPDATE works SET ${fields.join(", ")} WHERE id = $${paramIndex}
          RETURNING id, created_at, title, date_published, publisher, editor,
                    lccn, isbn_10, isbn_13, media_type, number_of_pages, language,
-                   location, updated_at`,
+                   location, call_number, updated_at`,
         values
     );
 

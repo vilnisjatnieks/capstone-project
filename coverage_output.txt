@@ -1,0 +1,127 @@
+﻿node.exe : PASS src/__tests__/lib/is
+bn-lookup.test.ts
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" "C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSp 
+   ecified: (PASS src/__test...-lo  
+  okup.test.ts:String) [], Remote   
+ Exception
+    + FullyQualifiedErrorId : Nativ 
+   eCommandError
+ 
+  sanitizeISBN
+    ΓêÜ strips hyphens and spaces 
+(7 ms)
+    ΓêÜ trims whitespace (1 ms)
+    ΓêÜ returns empty string for 
+empty input (1 ms)
+  isValidISBN
+    ΓêÜ accepts valid ISBN-13 (1 ms)
+    ΓêÜ accepts valid ISBN-10
+    ΓêÜ accepts ISBN-10 ending in X
+    ΓêÜ accepts ISBN-10 ending in 
+lowercase x (1 ms)
+    ΓêÜ rejects too short (1 ms)
+    ΓêÜ rejects too long
+    ΓêÜ rejects letters in body (1 
+ms)
+  mapLanguageCode
+    ΓêÜ maps known codes (1 ms)
+    ΓêÜ is case-insensitive (1 ms)
+    ΓêÜ returns the code itself for 
+unknown codes
+    ΓêÜ returns null for undefined
+  parseGoogleResult
+    ΓêÜ parses a full Google 
+volumeInfo (1 ms)
+    ΓêÜ handles missing optional 
+fields (1 ms)
+    ΓêÜ defaults title to Unknown 
+Title when missing (1 ms)
+    ΓêÜ maps non-BOOK printType to 
+lowercase (1 ms)
+  parseOpenLibraryResult
+    ΓêÜ parses a full Open Library 
+book (1 ms)
+    ΓêÜ handles missing optional 
+fields (1 ms)
+  fetchFromGoogle
+    ΓêÜ returns parsed result on 
+success (2 ms)
+    ΓêÜ returns null when response 
+is not ok
+    ΓêÜ returns null when no items 
+(1 ms)
+    ΓêÜ returns null when items 
+array is empty (3 ms)
+  fetchFromOpenLibrary
+    ΓêÜ returns parsed result on 
+success (1 ms)
+    ΓêÜ returns null when response 
+is not ok
+    ΓêÜ returns null when response 
+is empty object (1 ms)
+  lookupByISBN
+    ΓêÜ throws for empty ISBN (14 
+ms)
+    ΓêÜ throws for blank ISBN (1 ms)
+    ΓêÜ throws for invalid ISBN (1 
+ms)
+    ΓêÜ returns Google result when 
+available (1 ms)
+    ΓêÜ falls back to Open Library 
+when Google returns no items (1 ms)
+    ΓêÜ falls back to Open Library 
+when Google fetch throws
+    ΓêÜ throws when both APIs fail
+    ΓêÜ throws when both APIs 
+return no data (1 ms)
+    ΓêÜ accepts ISBN with hyphens 
+(1 ms)
+    ΓêÜ accepts ISBN-10 ending in X
+
+PASS src/__tests__/api/staff/isbn-lo
+okup-route.test.ts
+  GET /api/staff/works/lookup
+    ΓêÜ returns 401 when not 
+authenticated (13 ms)
+    ΓêÜ returns 403 for non-staff 
+users (2 ms)
+    ΓêÜ returns 400 when isbn param 
+is missing (2 ms)
+    ΓêÜ returns 400 when isbn is 
+blank (1 ms)
+    ΓêÜ returns 200 with book data 
+on success (3 ms)
+    ΓêÜ returns 400 for invalid 
+ISBN error (1 ms)
+    ΓêÜ returns 400 for ISBN is 
+required error (2 ms)
+    ΓêÜ returns 404 when no results 
+found (1 ms)
+    ΓêÜ returns 500 on unexpected 
+error (5 ms)
+    ΓêÜ returns 500 on non-Error 
+thrown value (1 ms)
+
+----------------------------|---------|----------|---------|---------|-------------------
+File                        | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+----------------------------|---------|----------|---------|---------|-------------------
+All files                   |     100 |      100 |     100 |     100 |                   
+ app/api/staff/works/lookup |     100 |      100 |     100 |     100 |                   
+  route.ts                  |     100 |      100 |     100 |     100 |                   
+ lib                        |     100 |      100 |     100 |     100 |                   
+  isbn-lookup.ts            |     100 |      100 |     100 |     100 |                   
+----------------------------|---------|----------|---------|---------|-------------------
+Test Suites: 2 passed, 2 total
+Tests:       47 passed, 47 total
+Snapshots:   0 total
+Time:        1.805 s
+Ran all test suites matching src/__t
+ests__/lib/isbn-lookup.test.ts|src/_
+_tests__/api/staff/isbn-lookup-route
+.test.ts.
