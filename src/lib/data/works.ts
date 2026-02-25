@@ -111,6 +111,21 @@ export async function getWorkById(id: string): Promise<WorkWithCoverDTO | null> 
     return result.rows[0] as WorkWithCoverDTO;
 }
 
+/** Get a single work by ID (public access). Includes base64-encoded cover. */
+export async function getPublicWorkById(id: string): Promise<WorkWithCoverDTO | null> {
+    const result = await query(
+        `SELECT id, created_at, title, date_published, publisher,
+                encode(cover, 'base64') as cover,
+                editor, lccn, isbn_10, isbn_13, media_type, number_of_pages,
+                language, location, call_number, updated_at
+         FROM works WHERE id = $1`,
+        [id]
+    );
+
+    if (result.rows.length === 0) return null;
+    return result.rows[0] as WorkWithCoverDTO;
+}
+
 /** Search works (public). Returns DTOs without cover data. */
 export async function searchWorks(params: {
     q?: string;

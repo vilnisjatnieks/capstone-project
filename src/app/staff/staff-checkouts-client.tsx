@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Search } from "lucide-react";
 import { CheckoutFormDialog } from "./checkout-form-dialog";
 import { ReturnCheckoutDialog } from "./return-checkout-dialog";
 
@@ -108,13 +109,16 @@ export function StaffCheckoutsClient({
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <Button onClick={() => setFormOpen(true)}>Check Out Item</Button>
-        <Input
-          id="checkout-search"
-          placeholder="Search by title, name, or email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
-        />
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            id="checkout-search"
+            placeholder="Search by title, name, or email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         <Select name="status-filter" value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger id="status-filter" className="w-[160px]">
             <SelectValue placeholder="Filter status" />
