@@ -159,7 +159,11 @@ export function StaffCheckoutsClient({
             </TableRow>
           ) : (
             filteredCheckouts.map((checkout) => (
-              <TableRow key={checkout.id}>
+              <TableRow
+                key={checkout.id}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => router.push(`/works/${checkout.work_id}`)}
+              >
                 <TableCell className="font-medium">
                   {checkout.work_title}
                 </TableCell>
@@ -167,6 +171,7 @@ export function StaffCheckoutsClient({
                   {checkout.user_name}
                   <a
                     href={`mailto:${checkout.user_email}`}
+                    onClick={(e) => e.stopPropagation()}
                     className="block text-xs text-muted-foreground hover:underline"
                   >
                     {checkout.user_email}
@@ -194,7 +199,7 @@ export function StaffCheckoutsClient({
                     <Badge>Active</Badge>
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   {!checkout.returned_at && (
                     <Button
                       variant="outline"

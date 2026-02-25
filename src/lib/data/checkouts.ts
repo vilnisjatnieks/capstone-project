@@ -14,6 +14,7 @@ export interface CheckoutDTO {
     checked_out_at: string;
     due_date: string;
     returned_at: string | null;
+    reminder_sent_at: string | null;
     created_at: string;
     updated_at: string;
     work_title: string;
@@ -28,6 +29,7 @@ export interface CheckoutBaseDTO {
     checked_out_at: string;
     due_date: string;
     returned_at: string | null;
+    reminder_sent_at: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -57,7 +59,7 @@ export async function getAllCheckouts(): Promise<CheckoutDTO[]> {
 
     const result = await query(
         `SELECT c.id, c.work_id, c.user_id, c.checked_out_at, c.due_date,
-                c.returned_at, c.created_at, c.updated_at,
+                c.returned_at, c.reminder_sent_at, c.created_at, c.updated_at,
                 w.title AS work_title,
                 u.name AS user_name, u.email AS user_email
          FROM checkouts c
@@ -77,7 +79,7 @@ export async function getCheckoutById(
 
     const result = await query(
         `SELECT c.id, c.work_id, c.user_id, c.checked_out_at, c.due_date,
-                c.returned_at, c.created_at, c.updated_at,
+                c.returned_at, c.reminder_sent_at, c.created_at, c.updated_at,
                 w.title AS work_title,
                 u.name AS user_name, u.email AS user_email
          FROM checkouts c
@@ -148,7 +150,7 @@ export async function createCheckout(input: {
         `INSERT INTO checkouts (work_id, user_id, due_date)
          VALUES ($1, $2, $3)
          RETURNING id, work_id, user_id, checked_out_at, due_date, returned_at,
-                   created_at, updated_at`,
+                   reminder_sent_at, created_at, updated_at`,
         [input.work_id, input.user_id, input.due_date]
     );
 
@@ -168,10 +170,44 @@ export async function returnCheckout(
         `UPDATE checkouts SET returned_at = NOW(), updated_at = NOW()
          WHERE id = $1 AND returned_at IS NULL
          RETURNING id, work_id, user_id, checked_out_at, due_date, returned_at,
-                   created_at, updated_at`,
+                   reminder_sent_at, created_at, updated_at`,
         [id]
     );
 
     if (result.rows.length === 0) return null;
     return result.rows[0] as CheckoutBaseDTO;
+}
+
+/**
+ * Get checkouts that are due within the given number of days and haven't had a reminder sent.
+ */
+export async function getCheckoutsNeedingReminders(
+    daysOut: number
+): Promise<CheckoutDTO[]> {
+    const result = await query(
+        `SELECT c.id, c.work_id, c.user_id, c.checked_out_at, c.due_date,
+                c.returned_at, c.reminder_sent_at, c.created_at, c.updated_at,
+                w.title AS work_title,
+                u.name AS user_name, u.email AS user_email
+         FROM checkouts c
+         JOIN works w ON w.id = c.work_id
+         JOIN users u ON u.id = c.user_id
+         WHERE c.returned_at IS NULL
+           AND c.reminder_sent_at IS NULL
+           AND c.due_date <= NOW() + ($1 || ' days')::interval;`,
+        [daysOut.toString()]
+    );
+
+    return result.rows as CheckoutDTO[];
+}
+
+/**
+ * Mark a checkout as having had a reminder sent.
+ */
+export async function markReminderSent(id: string): Promise<void> {
+    await query(
+        `UPDATE checkouts SET reminder_sent_at = NOW(), updated_at = NOW()
+         WHERE id = $1`,
+        [id]
+    );
 }

@@ -34,3 +34,9 @@ Open [http://localhost:3000](http://localhost:3000)
 - `npm test` - Run tests
 - `npm test -- --coverage` - Run tests with coverage
 - `npm run lint` - Run linter
+
+### Testing Cron Jobs Locally (PowerShell)
+```powershell
+$secret = (Get-Content .env | Select-String "^CRON_SECRET=(.*)").Matches.Groups[1].Value; Invoke-RestMethod -Uri "http://localhost:3000/api/cron/reminders" -Headers @{ Authorization="Bearer $secret" }
+```
+

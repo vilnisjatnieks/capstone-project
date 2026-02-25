@@ -154,14 +154,18 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
                         </TableRow>
                     ) : (
                         filteredWorks.map((work) => (
-                            <TableRow key={work.id}>
+                            <TableRow
+                                key={work.id}
+                                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                onClick={() => router.push(`/works/${work.id}`)}
+                            >
                                 <TableCell className="font-medium">{work.title}</TableCell>
                                 <TableCell>{work.publisher ?? "—"}</TableCell>
                                 <TableCell>{work.call_number ?? "—"}</TableCell>
                                 <TableCell>{work.date_published ? work.date_published : "—"}</TableCell>
                                 <TableCell>{work.number_of_pages ?? "—"}</TableCell>
                                 <TableCell>{work.location ?? "—"}</TableCell>
-                                <TableCell>
+                                <TableCell onClick={(e) => e.stopPropagation()}>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="ghost" size="sm">
