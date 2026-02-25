@@ -34,6 +34,7 @@ interface Checkout {
   work_title: string;
   user_name: string;
   user_email: string;
+  extension_status?: "none" | "pending" | "approved" | "rejected";
 }
 
 interface Work {
@@ -71,6 +72,24 @@ export function StaffCheckoutsClient({
   const [returningCheckout, setReturningCheckout] = useState<Checkout | null>(
     null,
   );
+  const [loadingExtensionId, setLoadingExtensionId] = useState<string | null>(null);
+
+  const handleExtension = async (id: string, action: 'approve' | 'reject') => {
+    setLoadingExtensionId(id);
+    try {
+      const res = await fetch(`/api/staff/checkouts/${id}/extend/${action}`, { method: 'POST' });
+      if (res.ok) {
+        router.refresh();
+      } else {
+        const data = await res.json();
+        alert(data.error || `Failed to ${action} extension`);
+      }
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setLoadingExtensionId(null);
+    }
+  };
 
   const checkedOutWorkIds = useMemo(() => {
     const ids = new Set<string>();
@@ -191,24 +210,53 @@ export function StaffCheckoutsClient({
                   </TableCell>
                 )}
                 <TableCell>
-                  {checkout.returned_at ? (
-                    <Badge variant="secondary">Returned</Badge>
-                  ) : isOverdue(checkout) ? (
-                    <Badge variant="destructive">Overdue</Badge>
-                  ) : (
-                    <Badge>Active</Badge>
-                  )}
+                  <div className="flex flex-col gap-1 items-start">
+                    {checkout.returned_at ? (
+                      <Badge variant="secondary">Returned</Badge>
+                    ) : isOverdue(checkout) ? (
+                      <Badge variant="destructive">Overdue</Badge>
+                    ) : (
+                      <Badge>Active</Badge>
+                    )}
+                    {checkout.extension_status === 'pending' && (
+                      <Badge variant="outline" className="text-yellow-600 border-yellow-600 dark:text-yellow-500 dark:border-yellow-500">
+                        Ext. pending
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
-                  {!checkout.returned_at && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openReturnDialog(checkout)}
-                    >
-                      Return
-                    </Button>
-                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {!checkout.returned_at && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openReturnDialog(checkout)}
+                      >
+                        Return
+                      </Button>
+                    )}
+                    {checkout.extension_status === 'pending' && (
+                      <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          disabled={loadingExtensionId === checkout.id}
+                          onClick={() => handleExtension(checkout.id, 'approve')}
+                        >
+                          Approve Ext
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={loadingExtensionId === checkout.id}
+                          onClick={() => handleExtension(checkout.id, 'reject')}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))

@@ -28,7 +28,10 @@ export async function Header() {
                   <Link href="/staff">Staff</Link>
                 </Button>
               )}
-              <span className="text-sm text-muted-foreground">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/profile">My Profile</Link>
+              </Button>
+              <span className="text-sm text-muted-foreground ml-2">
                 {user.name}
               </span>
               <LogoutButton />

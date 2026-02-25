@@ -15,6 +15,7 @@ export interface CheckoutDTO {
     due_date: string;
     returned_at: string | null;
     reminder_sent_at: string | null;
+    extension_status: "none" | "pending" | "approved" | "rejected";
     created_at: string;
     updated_at: string;
     work_title: string;
@@ -30,6 +31,7 @@ export interface CheckoutBaseDTO {
     due_date: string;
     returned_at: string | null;
     reminder_sent_at: string | null;
+    extension_status: "none" | "pending" | "approved" | "rejected";
     created_at: string;
     updated_at: string;
 }
@@ -59,7 +61,7 @@ export async function getAllCheckouts(): Promise<CheckoutDTO[]> {
 
     const result = await query(
         `SELECT c.id, c.work_id, c.user_id, c.checked_out_at, c.due_date,
-                c.returned_at, c.reminder_sent_at, c.created_at, c.updated_at,
+                c.returned_at, c.reminder_sent_at, c.extension_status, c.created_at, c.updated_at,
                 w.title AS work_title,
                 u.name AS user_name, u.email AS user_email
          FROM checkouts c
@@ -79,7 +81,7 @@ export async function getCheckoutById(
 
     const result = await query(
         `SELECT c.id, c.work_id, c.user_id, c.checked_out_at, c.due_date,
-                c.returned_at, c.reminder_sent_at, c.created_at, c.updated_at,
+                c.returned_at, c.reminder_sent_at, c.extension_status, c.created_at, c.updated_at,
                 w.title AS work_title,
                 u.name AS user_name, u.email AS user_email
          FROM checkouts c
@@ -93,6 +95,24 @@ export async function getCheckoutById(
     return result.rows[0] as CheckoutDTO;
 }
 
+/** Get all checkouts for a given user ID.  */
+export async function getUserCheckouts(userId: string): Promise<CheckoutDTO[]> {
+    const result = await query(
+        `SELECT c.id, c.work_id, c.user_id, c.checked_out_at, c.due_date,
+                c.returned_at, c.reminder_sent_at, c.extension_status, c.created_at, c.updated_at,
+                w.title AS work_title,
+                u.name AS user_name, u.email AS user_email
+         FROM checkouts c
+         JOIN works w ON w.id = c.work_id
+         JOIN users u ON u.id = c.user_id
+         WHERE c.user_id = $1
+         ORDER BY c.created_at DESC`,
+        [userId]
+    );
+
+    return result.rows as CheckoutDTO[];
+}
+
 /** Check if a specific work is currently checked out. Return true if checked out. */
 export async function isWorkCheckedOut(workId: string): Promise<boolean> {
     await requireStaffUser();
@@ -103,6 +123,21 @@ export async function isWorkCheckedOut(workId: string): Promise<boolean> {
     );
 
     return activeCheckout.rows.length > 0;
+}
+
+/** Get the active (not returned) checkout ID for a specific work, if any. Return null if none. */
+export async function getActiveCheckoutForWork(
+    workId: string
+): Promise<string | null> {
+    await requireStaffUser();
+
+    const activeCheckout = await query(
+        "SELECT id FROM checkouts WHERE work_id = $1 AND returned_at IS NULL",
+        [workId]
+    );
+
+    if (activeCheckout.rows.length === 0) return null;
+    return activeCheckout.rows[0].id as string;
 }
 
 // ---------------------------------------------------------------------------
@@ -150,7 +185,7 @@ export async function createCheckout(input: {
         `INSERT INTO checkouts (work_id, user_id, due_date)
          VALUES ($1, $2, $3)
          RETURNING id, work_id, user_id, checked_out_at, due_date, returned_at,
-                   reminder_sent_at, created_at, updated_at`,
+                   reminder_sent_at, extension_status, created_at, updated_at`,
         [input.work_id, input.user_id, input.due_date]
     );
 
@@ -170,7 +205,7 @@ export async function returnCheckout(
         `UPDATE checkouts SET returned_at = NOW(), updated_at = NOW()
          WHERE id = $1 AND returned_at IS NULL
          RETURNING id, work_id, user_id, checked_out_at, due_date, returned_at,
-                   reminder_sent_at, created_at, updated_at`,
+                   reminder_sent_at, extension_status, created_at, updated_at`,
         [id]
     );
 
@@ -186,7 +221,7 @@ export async function getCheckoutsNeedingReminders(
 ): Promise<CheckoutDTO[]> {
     const result = await query(
         `SELECT c.id, c.work_id, c.user_id, c.checked_out_at, c.due_date,
-                c.returned_at, c.reminder_sent_at, c.created_at, c.updated_at,
+                c.returned_at, c.reminder_sent_at, c.extension_status, c.created_at, c.updated_at,
                 w.title AS work_title,
                 u.name AS user_name, u.email AS user_email
          FROM checkouts c
@@ -210,4 +245,71 @@ export async function markReminderSent(id: string): Promise<void> {
          WHERE id = $1`,
         [id]
     );
+}
+
+/**
+ * Request an extension for a checkout (User only).
+ * Requires the checkout to be active (not returned) and for it to belong to the user.
+ */
+export async function requestCheckoutExtension(
+    id: string,
+    userId: string
+): Promise<CheckoutBaseDTO | null> {
+    const result = await query(
+        `UPDATE checkouts SET extension_status = 'pending', updated_at = NOW()
+         WHERE id = $1 AND user_id = $2 AND returned_at IS NULL AND extension_status = 'none'
+         RETURNING id, work_id, user_id, checked_out_at, due_date, returned_at,
+                   reminder_sent_at, extension_status, created_at, updated_at`,
+        [id, userId]
+    );
+
+    if (result.rows.length === 0) return null;
+    return result.rows[0] as CheckoutBaseDTO;
+}
+
+/**
+ * Approve a checkout extension (Staff only).
+ * Adds 14 days to the due_date and marks status as 'approved'.
+ */
+export async function approveCheckoutExtension(
+    id: string
+): Promise<CheckoutBaseDTO | null> {
+    await requireStaffUser();
+
+    const result = await query(
+        `UPDATE checkouts 
+         SET due_date = due_date + interval '14 days',
+             extension_status = 'approved',
+             updated_at = NOW()
+         WHERE id = $1 AND returned_at IS NULL AND extension_status = 'pending'
+         RETURNING id, work_id, user_id, checked_out_at, due_date, returned_at,
+                   reminder_sent_at, extension_status, created_at, updated_at`,
+        [id]
+    );
+
+    if (result.rows.length === 0) return null;
+    return result.rows[0] as CheckoutBaseDTO;
+}
+
+/**
+ * Reject a checkout extension (Staff only).
+ * Marks status as 'rejected'.
+ */
+export async function rejectCheckoutExtension(
+    id: string
+): Promise<CheckoutBaseDTO | null> {
+    await requireStaffUser();
+
+    const result = await query(
+        `UPDATE checkouts 
+         SET extension_status = 'rejected',
+             updated_at = NOW()
+         WHERE id = $1 AND returned_at IS NULL AND extension_status = 'pending'
+         RETURNING id, work_id, user_id, checked_out_at, due_date, returned_at,
+                   reminder_sent_at, extension_status, created_at, updated_at`,
+        [id]
+    );
+
+    if (result.rows.length === 0) return null;
+    return result.rows[0] as CheckoutBaseDTO;
 }
