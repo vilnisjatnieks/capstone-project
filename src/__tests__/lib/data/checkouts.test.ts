@@ -23,6 +23,11 @@ import {
     returnCheckout,
     getCheckoutsNeedingReminders,
     markReminderSent,
+    getUserCheckouts,
+    requestCheckoutExtension,
+    approveCheckoutExtension,
+    rejectCheckoutExtension,
+    getActiveCheckoutForWork,
 } from "@/lib/data/checkouts";
 
 const staffUser = {
@@ -301,6 +306,118 @@ describe("markReminderSent", () => {
 
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("UPDATE checkouts SET reminder_sent_at"),
+            ["c1"]
+        );
+    });
+});
+
+// ─── getUserCheckouts ───────────────────────────────────────────────
+
+describe("getUserCheckouts", () => {
+    it("returns user checkouts with joined data", async () => {
+        const checkouts = [
+            { id: "c1", work_title: "Book A", user_name: "Alice" },
+        ];
+        mockQuery.mockResolvedValue({ rows: checkouts });
+
+        const result = await getUserCheckouts("u1");
+
+        expect(result).toEqual(checkouts);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("WHERE c.user_id = $1"),
+            ["u1"]
+        );
+    });
+});
+
+// ─── getActiveCheckoutForWork ───────────────────────────────────────
+
+describe("getActiveCheckoutForWork", () => {
+    it("returns checkout id if active", async () => {
+        mockQuery.mockResolvedValue({ rows: [{ id: "c1" }] });
+        const result = await getActiveCheckoutForWork("w1");
+        expect(result).toBe("c1");
+    });
+
+    it("returns null if no active checkout", async () => {
+        mockQuery.mockResolvedValue({ rows: [] });
+        const result = await getActiveCheckoutForWork("w1");
+        expect(result).toBeNull();
+    });
+});
+
+// ─── requestCheckoutExtension ───────────────────────────────────────
+
+describe("requestCheckoutExtension", () => {
+    it("updates extension_status to pending", async () => {
+        const updatedCheckout = { id: "c1", extension_status: "pending" };
+        mockQuery.mockResolvedValue({ rows: [updatedCheckout] });
+
+        const result = await requestCheckoutExtension("c1", "u1");
+
+        expect(result).toEqual(updatedCheckout);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("UPDATE checkouts SET extension_status = 'pending'"),
+            ["c1", "u1"]
+        );
+    });
+
+    it("returns null when checkout not found or ineligible", async () => {
+        mockQuery.mockResolvedValue({ rows: [] });
+        const result = await requestCheckoutExtension("c999", "u1");
+        expect(result).toBeNull();
+    });
+});
+
+// ─── approveCheckoutExtension ───────────────────────────────────────
+
+describe("approveCheckoutExtension", () => {
+    it("throws Unauthorized when not authenticated", async () => {
+        mockGetCurrentUser.mockResolvedValue(null);
+        await expect(approveCheckoutExtension("c1")).rejects.toThrow("Unauthorized");
+    });
+
+    it("throws Forbidden when role is user", async () => {
+        mockGetCurrentUser.mockResolvedValue(regularUser);
+        await expect(approveCheckoutExtension("c1")).rejects.toThrow("Forbidden");
+    });
+
+    it("updates extension_status to approved and due_date", async () => {
+        const updatedCheckout = { id: "c1", extension_status: "approved" };
+        mockQuery.mockResolvedValue({ rows: [updatedCheckout] });
+
+        const result = await approveCheckoutExtension("c1");
+
+        expect(result).toEqual(updatedCheckout);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("due_date = due_date + interval '14 days'"),
+            ["c1"]
+        );
+    });
+});
+
+// ─── rejectCheckoutExtension ────────────────────────────────────────
+
+describe("rejectCheckoutExtension", () => {
+    it("throws Unauthorized when not authenticated", async () => {
+        mockGetCurrentUser.mockResolvedValue(null);
+        await expect(rejectCheckoutExtension("c1")).rejects.toThrow("Unauthorized");
+    });
+
+    it("throws Forbidden when role is user", async () => {
+        mockGetCurrentUser.mockResolvedValue(regularUser);
+        await expect(rejectCheckoutExtension("c1")).rejects.toThrow("Forbidden");
+    });
+
+    it("updates extension_status to rejected", async () => {
+        const updatedCheckout = { id: "c1", extension_status: "rejected" };
+        mockQuery.mockResolvedValue({ rows: [updatedCheckout] });
+
+        const result = await rejectCheckoutExtension("c1");
+
+        expect(result).toEqual(updatedCheckout);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("extension_status = 'rejected'"),
             ["c1"]
         );
     });
