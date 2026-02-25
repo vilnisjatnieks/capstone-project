@@ -34,3 +34,8 @@ Open [http://localhost:3000](http://localhost:3000)
 - `npm test` - Run tests
 - `npm test -- --coverage` - Run tests with coverage
 - `npm run lint` - Run linter
+
+### Testing Cron Jobs Locally
+```bash
+npx tsx test-cron.ts
+```

@@ -40,6 +40,7 @@ interface CheckoutFormDialogProps {
     availableWorks: Work[];
     users: User[];
     onCreated: () => void;
+    defaultWorkId?: string;
 }
 
 function defaultDueDate() {
@@ -54,13 +55,14 @@ export function CheckoutFormDialog({
     availableWorks,
     users,
     onCreated,
+    defaultWorkId,
 }: CheckoutFormDialogProps) {
     const [workListOpen, setWorkListOpen] = useState(false);
     const [userListOpen, setUserListOpen] = useState(false);
     const [workSearch, setWorkSearch] = useState("");
     const [userSearch, setUserSearch] = useState("");
     const [formData, setFormData] = useState({
-        work_id: "",
+        work_id: defaultWorkId || "",
         user_id: "",
         due_date: defaultDueDate(),
     });
@@ -69,7 +71,7 @@ export function CheckoutFormDialog({
 
     function handleOpenChange(nextOpen: boolean) {
         if (nextOpen) {
-            setFormData({ work_id: "", user_id: "", due_date: defaultDueDate() });
+            setFormData({ work_id: defaultWorkId || "", user_id: "", due_date: defaultDueDate() });
             setFormError("");
             setWorkListOpen(false);
             setUserListOpen(false);

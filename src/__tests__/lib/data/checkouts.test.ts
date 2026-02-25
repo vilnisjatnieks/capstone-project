@@ -21,6 +21,8 @@ import {
     getCheckoutById,
     createCheckout,
     returnCheckout,
+    getCheckoutsNeedingReminders,
+    markReminderSent,
 } from "@/lib/data/checkouts";
 
 const staffUser = {
@@ -267,5 +269,39 @@ describe("returnCheckout", () => {
         const result = await returnCheckout("c999");
 
         expect(result).toBeNull();
+    });
+});
+
+// ─── getCheckoutsNeedingReminders ───────────────────────────────────
+
+describe("getCheckoutsNeedingReminders", () => {
+    it("returns checkouts needing reminders", async () => {
+        const checkouts = [
+            { id: "c1", work_title: "Book A", user_name: "Alice" },
+        ];
+        mockQuery.mockResolvedValue({ rows: checkouts });
+
+        const result = await getCheckoutsNeedingReminders(3);
+
+        expect(result).toEqual(checkouts);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("WHERE c.returned_at IS NULL"),
+            ["3"]
+        );
+    });
+});
+
+// ─── markReminderSent ───────────────────────────────────────────────
+
+describe("markReminderSent", () => {
+    it("updates reminder_sent_at", async () => {
+        mockQuery.mockResolvedValue({ rowCount: 1, rows: [] });
+
+        await markReminderSent("c1");
+
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("UPDATE checkouts SET reminder_sent_at"),
+            ["c1"]
+        );
     });
 });

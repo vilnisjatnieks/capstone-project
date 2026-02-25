@@ -13,9 +13,6 @@ export async function Header() {
           <Link href="/" className="text-lg font-semibold">
             Home
           </Link>
-          <Link href="/search" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Search
-          </Link>
         </div>
 
         <div className="flex items-center gap-4">
