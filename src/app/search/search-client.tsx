@@ -30,6 +30,12 @@ import {
     Search,
 } from "lucide-react";
 
+interface WorkTag {
+    id: string;
+    name: string;
+    color: string | null;
+}
+
 interface Work {
     id: string;
     title: string;
@@ -44,6 +50,7 @@ interface Work {
     language: string | null;
     location: string | null;
     call_number: string | null;
+    tags?: WorkTag[];
 }
 
 type ViewMode = "grid" | "list";
@@ -91,12 +98,20 @@ function compareValues(
     return direction === "asc" ? result : -result;
 }
 
+interface Tag {
+    id: string;
+    name: string;
+    color: string | null;
+}
+
 export function SearchClient() {
     const [query, setQuery] = useState("");
     const [mediaFilter, setMediaFilter] = useState("all");
+    const [tagFilter, setTagFilter] = useState("all");
     const [results, setResults] = useState<Work[]>([]);
     const [loading, setLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
+    const [availableTags, setAvailableTags] = useState<Tag[]>([]);
 
     // New state
     const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -106,12 +121,21 @@ export function SearchClient() {
 
     const router = useRouter();
 
-    const fetchResults = useCallback(async (q: string, media: string) => {
+    // Fetch tags once on mount
+    useEffect(() => {
+        fetch("/api/search/tags")
+            .then((res) => (res.ok ? res.json() : []))
+            .then((data) => setAvailableTags(data))
+            .catch(() => {});
+    }, []);
+
+    const fetchResults = useCallback(async (q: string, media: string, tag: string) => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
             if (q.trim()) params.set("q", q.trim());
             if (media && media !== "all") params.set("media_type", media);
+            if (tag && tag !== "all") params.set("tag", tag);
 
             const res = await fetch(`/api/search/works?${params.toString()}`);
             if (res.ok) {
@@ -127,10 +151,10 @@ export function SearchClient() {
     // Debounced search
     useEffect(() => {
         const timer = setTimeout(() => {
-            fetchResults(query, mediaFilter);
+            fetchResults(query, mediaFilter, tagFilter);
         }, 300);
         return () => clearTimeout(timer);
-    }, [query, mediaFilter, fetchResults]);
+    }, [query, mediaFilter, tagFilter, fetchResults]);
 
     // Distinct languages for filter dropdown
     const availableLanguages = useMemo(() => {
@@ -223,6 +247,31 @@ export function SearchClient() {
                             ))}
                         </SelectContent>
                     </Select>
+
+                    {/* Tag filter */}
+                    {availableTags.length > 0 && (
+                        <Select value={tagFilter} onValueChange={setTagFilter}>
+                            <SelectTrigger id="tag-filter" className="w-[160px]">
+                                <SelectValue placeholder="All Tags" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Tags</SelectItem>
+                                {availableTags.map((tag) => (
+                                    <SelectItem key={tag.id} value={tag.id}>
+                                        <div className="flex items-center gap-2">
+                                            {tag.color && (
+                                                <div
+                                                    className="w-3 h-3 rounded-full border"
+                                                    style={{ backgroundColor: tag.color }}
+                                                />
+                                            )}
+                                            {tag.name}
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
 
                     {/* Sort field */}
                     <Select
@@ -403,6 +452,19 @@ export function SearchClient() {
                                             <p>Publisher: {work.publisher}</p>
                                         </div>
                                     )}
+                                    {work.tags && work.tags.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                            {work.tags.map((tag) => (
+                                                <Badge
+                                                    key={tag.id}
+                                                    className="text-xs px-2 py-0 rounded-full"
+                                                    style={tag.color ? { backgroundColor: tag.color, color: "#fff" } : undefined}
+                                                >
+                                                    {tag.name}
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    )}
                                 </Link>
                             ))}
                         </div>
@@ -474,6 +536,7 @@ export function SearchClient() {
                                         </button>
                                     </TableHead>
                                     <TableHead>Publisher</TableHead>
+                                    <TableHead>Tags</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -516,6 +579,23 @@ export function SearchClient() {
                                         </TableCell>
                                         <TableCell className="text-xs">
                                             {work.publisher ?? "—"}
+                                        </TableCell>
+                                        <TableCell>
+                                            {work.tags && work.tags.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {work.tags.map((tag) => (
+                                                        <Badge
+                                                            key={tag.id}
+                                                            className="text-xs px-2 py-0 rounded-full"
+                                                            style={tag.color ? { backgroundColor: tag.color, color: "#fff" } : undefined}
+                                                        >
+                                                            {tag.name}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                "—"
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}

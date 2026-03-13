@@ -130,6 +130,7 @@ export async function getPublicWorkById(id: string): Promise<WorkWithCoverDTO | 
 export async function searchWorks(params: {
     q?: string;
     mediaType?: string;
+    tagId?: string;
 }): Promise<WorkDTO[]> {
     const conditions: string[] = [];
     const values: unknown[] = [];
@@ -137,20 +138,28 @@ export async function searchWorks(params: {
 
     if (params.q) {
         conditions.push(
-            `(title ILIKE $${paramIndex}
-              OR publisher ILIKE $${paramIndex}
-              OR editor ILIKE $${paramIndex}
-              OR isbn_10 ILIKE $${paramIndex}
-              OR isbn_13 ILIKE $${paramIndex}
-              OR lccn ILIKE $${paramIndex})`
+            `(w.title ILIKE $${paramIndex}
+              OR w.publisher ILIKE $${paramIndex}
+              OR w.editor ILIKE $${paramIndex}
+              OR w.isbn_10 ILIKE $${paramIndex}
+              OR w.isbn_13 ILIKE $${paramIndex}
+              OR w.lccn ILIKE $${paramIndex})`
         );
         values.push(`%${params.q}%`);
         paramIndex++;
     }
 
     if (params.mediaType) {
-        conditions.push(`media_type = $${paramIndex}`);
+        conditions.push(`w.media_type = $${paramIndex}`);
         values.push(params.mediaType);
+        paramIndex++;
+    }
+
+    let joinClause = "";
+    if (params.tagId) {
+        joinClause = `JOIN work_tags wt ON wt.work_id = w.id`;
+        conditions.push(`wt.tag_id = $${paramIndex}`);
+        values.push(params.tagId);
         paramIndex++;
     }
 
@@ -158,11 +167,11 @@ export async function searchWorks(params: {
         conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const result = await query(
-        `SELECT id, title, date_published, publisher, editor,
-                lccn, isbn_10, isbn_13, media_type, number_of_pages,
-                language, location, call_number
-         FROM works ${whereClause}
-         ORDER BY title ASC`,
+        `SELECT w.id, w.title, w.date_published, w.publisher, w.editor,
+                w.lccn, w.isbn_10, w.isbn_13, w.media_type, w.number_of_pages,
+                w.language, w.location, w.call_number
+         FROM works w ${joinClause} ${whereClause}
+         ORDER BY w.title ASC`,
         values.length > 0 ? values : undefined
     );
 

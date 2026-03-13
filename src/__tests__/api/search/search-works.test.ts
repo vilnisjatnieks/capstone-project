@@ -22,27 +22,56 @@ beforeEach(() => {
     jest.clearAllMocks();
 });
 
+// Helper: first call returns works, second returns tags for those works
+function mockSearchWithTags(
+    works: Record<string, unknown>[],
+    tagRows: Record<string, unknown>[] = []
+) {
+    mockQuery
+        .mockResolvedValueOnce({ rows: works })   // searchWorks
+        .mockResolvedValueOnce({ rows: tagRows }); // getTagsForWorks
+}
+
 describe("GET /api/search/works", () => {
-    it("returns all works when no query params", async () => {
+    it("returns all works with tags when no query params", async () => {
         const works = [
             { id: "1", title: "Book A" },
             { id: "2", title: "Book B" },
         ];
-        mockQuery.mockResolvedValue({ rows: works });
+        mockSearchWithTags(works);
 
         const res = await GET(makeRequest());
         const body = await res.json();
 
         expect(res.status).toBe(200);
-        expect(body).toEqual(works);
+        expect(body).toEqual([
+            { id: "1", title: "Book A", tags: [] },
+            { id: "2", title: "Book B", tags: [] },
+        ]);
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("SELECT"),
             undefined
         );
     });
 
+    it("includes tags on returned works", async () => {
+        const works = [{ id: "1", title: "Book A" }];
+        const tagRows = [
+            { work_id: "1", id: "t1", name: "Fiction", color: "#ff0000", created_at: "x", updated_at: "x" },
+        ];
+        mockSearchWithTags(works, tagRows);
+
+        const res = await GET(makeRequest());
+        const body = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(body[0].tags).toEqual([
+            { id: "t1", name: "Fiction", color: "#ff0000", created_at: "x", updated_at: "x" },
+        ]);
+    });
+
     it("filters by search query", async () => {
-        mockQuery.mockResolvedValue({ rows: [{ id: "1", title: "Gatsby" }] });
+        mockSearchWithTags([{ id: "1", title: "Gatsby" }]);
 
         const res = await GET(makeRequest({ q: "gatsby" }));
         const body = await res.json();
@@ -56,7 +85,7 @@ describe("GET /api/search/works", () => {
     });
 
     it("filters by media type", async () => {
-        mockQuery.mockResolvedValue({ rows: [{ id: "1", title: "E-Book" }] });
+        mockSearchWithTags([{ id: "1", title: "E-Book" }]);
 
         const res = await GET(makeRequest({ media_type: "ebook" }));
         const body = await res.json();
@@ -64,13 +93,27 @@ describe("GET /api/search/works", () => {
         expect(res.status).toBe(200);
         expect(body).toHaveLength(1);
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("media_type = $1"),
+            expect.stringContaining("w.media_type = $1"),
             ["ebook"]
         );
     });
 
+    it("filters by tag", async () => {
+        mockSearchWithTags([{ id: "1", title: "Tagged Book" }]);
+
+        const res = await GET(makeRequest({ tag: "tag-uuid-1" }));
+        const body = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(body).toHaveLength(1);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("JOIN work_tags"),
+            ["tag-uuid-1"]
+        );
+    });
+
     it("combines search query and media type filter", async () => {
-        mockQuery.mockResolvedValue({ rows: [] });
+        mockSearchWithTags([]);
 
         const res = await GET(makeRequest({ q: "history", media_type: "book" }));
         const body = await res.json();
@@ -82,13 +125,13 @@ describe("GET /api/search/works", () => {
             ["%history%", "book"]
         );
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("media_type = $2"),
+            expect.stringContaining("w.media_type = $2"),
             ["%history%", "book"]
         );
     });
 
     it("returns empty array when no matches", async () => {
-        mockQuery.mockResolvedValue({ rows: [] });
+        mockSearchWithTags([]);
 
         const res = await GET(makeRequest({ q: "nonexistent" }));
         const body = await res.json();
@@ -98,7 +141,7 @@ describe("GET /api/search/works", () => {
     });
 
     it("trims whitespace from query params", async () => {
-        mockQuery.mockResolvedValue({ rows: [] });
+        mockSearchWithTags([]);
 
         await GET(makeRequest({ q: "  gatsby  " }));
 
@@ -109,7 +152,7 @@ describe("GET /api/search/works", () => {
     });
 
     it("ignores empty query string", async () => {
-        mockQuery.mockResolvedValue({ rows: [] });
+        mockSearchWithTags([]);
 
         await GET(makeRequest({ q: "   " }));
 

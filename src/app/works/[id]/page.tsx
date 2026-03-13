@@ -6,12 +6,14 @@ import { ArrowLeft, BookOpen, Clock, Globe, Hash, Library, MapPin, Building, Use
 import { getPublicWorkById } from "@/lib/data/works";
 import { getAllUsers } from "@/lib/data/users";
 import { isWorkCheckedOut, getActiveCheckoutForWork, getCheckoutById } from "@/lib/data/checkouts";
+import { getTagsForWork, getAllTags } from "@/lib/data/tags";
 import { getCurrentUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EditWorkButton } from "./edit-work-button";
 import { CheckoutWorkButton } from "./checkout-work-button";
 import { ReturnWorkButton } from "./return-work-button";
+import { WorkTagsEditor } from "@/app/staff/work-tags-editor";
 
 export const revalidate = 0; // Dynamic page
 
@@ -33,12 +35,16 @@ export default async function WorkPage({ params }: PageProps) {
     const user = await getCurrentUser();
     const isStaffOrAdmin = user?.role === "staff" || user?.role === "admin";
 
+    const workTags = await getTagsForWork(work.id);
+
     let allUsers: any[] = [];
+    let allTags: any[] = [];
     let isCheckedOut = false;
     let activeCheckout = null;
 
     if (isStaffOrAdmin) {
         allUsers = await getAllUsers();
+        allTags = await getAllTags();
         isCheckedOut = await isWorkCheckedOut(work.id);
         if (isCheckedOut) {
             const activeCheckoutId = await getActiveCheckoutForWork(work.id);
@@ -101,7 +107,7 @@ export default async function WorkPage({ params }: PageProps) {
                 {/* Right Column: Book Details */}
                 <div className="flex-1 space-y-6">
                     <div>
-                        <div className="flex flex-wrap gap-2 mb-3">
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
                             {work.media_type && (
                                 <Badge variant="secondary" className="px-3 py-1 text-sm rounded-full">
                                     {work.media_type.charAt(0).toUpperCase() + work.media_type.slice(1)}
@@ -111,6 +117,23 @@ export default async function WorkPage({ params }: PageProps) {
                                 <Badge variant="outline" className="px-3 py-1 text-sm rounded-full">
                                     {work.language}
                                 </Badge>
+                            )}
+                            {isStaffOrAdmin ? (
+                                <WorkTagsEditor
+                                    workId={work.id}
+                                    currentTags={workTags}
+                                    allTags={allTags}
+                                />
+                            ) : (
+                                workTags.map((tag) => (
+                                    <Badge
+                                        key={tag.id}
+                                        className="px-3 py-1 text-sm rounded-full"
+                                        style={tag.color ? { backgroundColor: tag.color, color: "#fff" } : undefined}
+                                    >
+                                        {tag.name}
+                                    </Badge>
+                                ))
                             )}
                         </div>
                         <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-foreground leading-tight mb-2">
@@ -208,7 +231,6 @@ export default async function WorkPage({ params }: PageProps) {
                         )}
                     </div>
 
-                    {/* Add action buttons here in the future when borrowing is public */}
                 </div>
             </div>
         </div>

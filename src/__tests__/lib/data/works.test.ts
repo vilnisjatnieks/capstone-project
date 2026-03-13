@@ -181,7 +181,7 @@ describe("searchWorks", () => {
 
         expect(result).toEqual(works);
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("ORDER BY title ASC"),
+            expect.stringContaining("ORDER BY w.title ASC"),
             undefined
         );
         // Should NOT have a WHERE clause
@@ -208,7 +208,7 @@ describe("searchWorks", () => {
         await searchWorks({ mediaType: "book" });
 
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("media_type = $1"),
+            expect.stringContaining("w.media_type = $1"),
             ["book"]
         );
     });
@@ -223,8 +223,38 @@ describe("searchWorks", () => {
             ["%test%", "ebook"]
         );
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("media_type = $2"),
+            expect.stringContaining("w.media_type = $2"),
             ["%test%", "ebook"]
+        );
+    });
+
+    it("searches with a tag filter", async () => {
+        mockQuery.mockResolvedValue({ rows: [] });
+
+        await searchWorks({ tagId: "tag-1" });
+
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("JOIN work_tags"),
+            ["tag-1"]
+        );
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("wt.tag_id = $1"),
+            ["tag-1"]
+        );
+    });
+
+    it("searches with query, media type, and tag combined", async () => {
+        mockQuery.mockResolvedValue({ rows: [] });
+
+        await searchWorks({ q: "test", mediaType: "book", tagId: "tag-1" });
+
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("JOIN work_tags"),
+            ["%test%", "book", "tag-1"]
+        );
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("wt.tag_id = $3"),
+            ["%test%", "book", "tag-1"]
         );
     });
 
