@@ -131,7 +131,16 @@ describe("parseGoogleResult", () => {
             language: "English",
             media_type: "book",
             call_number: null,
+            cover_url: null,
         });
+    });
+
+    it("extracts cover_url from imageLinks", () => {
+        const result = parseGoogleResult({
+            title: "Cover Book",
+            imageLinks: { thumbnail: "http://books.google.com/cover.jpg" },
+        });
+        expect(result.cover_url).toBe("https://books.google.com/cover.jpg");
     });
 
     it("handles missing optional fields", () => {
@@ -147,6 +156,7 @@ describe("parseGoogleResult", () => {
             language: null,
             media_type: null,
             call_number: null,
+            cover_url: null,
         });
     });
 
@@ -193,7 +203,24 @@ describe("parseOpenLibraryResult", () => {
             language: null,
             media_type: "book",
             call_number: "QA76.64 .D47 1995",
+            cover_url: null,
         });
+    });
+
+    it("extracts cover_url from cover object", () => {
+        const result = parseOpenLibraryResult({
+            title: "Cover Book",
+            cover: { large: "https://covers.openlibrary.org/large.jpg", medium: "https://covers.openlibrary.org/medium.jpg" },
+        });
+        expect(result.cover_url).toBe("https://covers.openlibrary.org/large.jpg");
+    });
+
+    it("falls back to medium cover when large is missing", () => {
+        const result = parseOpenLibraryResult({
+            title: "Cover Book",
+            cover: { medium: "https://covers.openlibrary.org/medium.jpg" },
+        });
+        expect(result.cover_url).toBe("https://covers.openlibrary.org/medium.jpg");
     });
 
     it("handles missing optional fields", () => {
@@ -209,6 +236,7 @@ describe("parseOpenLibraryResult", () => {
             language: null,
             media_type: "book",
             call_number: null,
+            cover_url: null,
         });
     });
 });

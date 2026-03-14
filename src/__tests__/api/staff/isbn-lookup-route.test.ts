@@ -12,6 +12,10 @@ jest.mock("@/lib/isbn-lookup", () => ({
     lookupByISBN: (isbn: string) => mockLookupByISBN(isbn),
 }));
 
+// Mock global fetch for cover image downloads
+const mockFetch = jest.fn();
+global.fetch = mockFetch as unknown as typeof fetch;
+
 import { GET } from "@/app/api/staff/works/lookup/route";
 import { NextRequest } from "next/server";
 
@@ -71,7 +75,7 @@ describe("GET /api/staff/works/lookup", () => {
         expect(body.error).toContain("isbn query parameter is required");
     });
 
-    it("returns 200 with book data on success", async () => {
+    it("returns 200 with book data on success (no cover)", async () => {
         const lookup = {
             title: "Fantastic Mr. Fox",
             publisher: "Puffin",
@@ -83,6 +87,7 @@ describe("GET /api/staff/works/lookup", () => {
             language: "English",
             media_type: "book",
             call_number: null,
+            cover_url: null,
         };
         mockLookupByISBN.mockResolvedValue(lookup);
 
@@ -90,8 +95,63 @@ describe("GET /api/staff/works/lookup", () => {
         const body = await res.json();
 
         expect(res.status).toBe(200);
-        expect(body).toEqual(lookup);
+        expect(body.title).toBe("Fantastic Mr. Fox");
+        expect(body.cover).toBeNull();
+        expect(body.cover_url).toBeUndefined();
         expect(mockLookupByISBN).toHaveBeenCalledWith("9780140328721");
+    });
+
+    it("downloads and returns cover as base64 when cover_url is present", async () => {
+        const fakeImageBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+        const lookup = {
+            title: "Cover Book",
+            publisher: null,
+            date_published: null,
+            isbn_10: null,
+            isbn_13: "9780140328721",
+            lccn: null,
+            number_of_pages: null,
+            language: null,
+            media_type: "book",
+            call_number: null,
+            cover_url: "https://books.google.com/cover.jpg",
+        };
+        mockLookupByISBN.mockResolvedValue(lookup);
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            arrayBuffer: async () => fakeImageBytes.buffer,
+        });
+
+        const res = await GET(makeRequest("9780140328721"));
+        const body = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(body.cover).toBe(Buffer.from(fakeImageBytes).toString("base64"));
+        expect(body.cover_url).toBeUndefined();
+    });
+
+    it("returns null cover when image download fails", async () => {
+        const lookup = {
+            title: "No Cover",
+            publisher: null,
+            date_published: null,
+            isbn_10: null,
+            isbn_13: "9780140328721",
+            lccn: null,
+            number_of_pages: null,
+            language: null,
+            media_type: "book",
+            call_number: null,
+            cover_url: "https://books.google.com/cover.jpg",
+        };
+        mockLookupByISBN.mockResolvedValue(lookup);
+        mockFetch.mockResolvedValueOnce({ ok: false, status: 404 });
+
+        const res = await GET(makeRequest("9780140328721"));
+        const body = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(body.cover).toBeNull();
     });
 
     it("returns 400 for invalid ISBN error", async () => {
