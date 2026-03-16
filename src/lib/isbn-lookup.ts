@@ -15,6 +15,7 @@ export interface LookupResult {
     language: string | null;
     media_type: string | null;
     call_number: string | null;
+    cover_url: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,6 +87,7 @@ interface GoogleVolumeInfo {
     pageCount?: number;
     language?: string;
     printType?: string;
+    imageLinks?: { thumbnail?: string; smallThumbnail?: string };
 }
 
 interface GoogleBooksResponse {
@@ -106,6 +108,13 @@ export function parseGoogleResult(info: GoogleVolumeInfo): LookupResult {
         mediaType = info.printType === "BOOK" ? "book" : info.printType.toLowerCase();
     }
 
+    // Google Books thumbnail URLs use http; upgrade to https and request larger size
+    let coverUrl: string | null = null;
+    const rawUrl = info.imageLinks?.thumbnail ?? info.imageLinks?.smallThumbnail ?? null;
+    if (rawUrl) {
+        coverUrl = rawUrl.replace(/^http:/, "https:").replace(/&edge=curl/, "");
+    }
+
     return {
         title: info.title ?? "Unknown Title",
         publisher: info.publisher ?? null,
@@ -117,6 +126,7 @@ export function parseGoogleResult(info: GoogleVolumeInfo): LookupResult {
         language: mapLanguageCode(info.language),
         media_type: mediaType,
         call_number: null, // Google Books does not provide LC call numbers
+        cover_url: coverUrl,
     };
 }
 
@@ -153,6 +163,7 @@ interface OpenLibraryBook {
     classifications?: {
         lc_classifications?: string[];
     };
+    cover?: { small?: string; medium?: string; large?: string };
 }
 
 type OpenLibraryResponse = Record<string, OpenLibraryBook>;
@@ -169,6 +180,7 @@ export function parseOpenLibraryResult(book: OpenLibraryBook): LookupResult {
         language: null,
         media_type: "book",
         call_number: book.classifications?.lc_classifications?.[0] ?? null,
+        cover_url: book.cover?.large ?? book.cover?.medium ?? null,
     };
 }
 

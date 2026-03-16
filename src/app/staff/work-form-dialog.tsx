@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ScanBarcode, Search, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { ScanBarcode, Search, Loader2, CheckCircle2, AlertCircle, ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,12 +75,32 @@ export function WorkFormDialog({ open, onOpenChange, editingWork, onSaved, autoF
     const [lookupMessage, setLookupMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const isbnInputRef = useRef<HTMLInputElement>(null);
 
+    // Cover image (base64-encoded) — from ISBN lookup or manual upload
+    const [coverBase64, setCoverBase64] = useState<string | null>(null);
+    const coverInputRef = useRef<HTMLInputElement>(null);
+
+    function handleCoverFile(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            // Strip the data:image/...;base64, prefix
+            const result = reader.result as string;
+            const base64 = result.split(",")[1];
+            if (base64) setCoverBase64(base64);
+        };
+        reader.readAsDataURL(file);
+        // Reset so the same file can be re-selected
+        e.target.value = "";
+    }
+
     useEffect(() => {
         if (!open) return;
         setFormError("");
         setIsbnInput("");
         setLookupMessage(null);
         setLookupLoading(false);
+        setCoverBase64(null);
         if (editingWork) {
             setFormData({
                 title: editingWork.title,
@@ -146,6 +166,9 @@ export function WorkFormDialog({ open, onOpenChange, editingWork, onSaved, autoF
                 call_number: data.call_number || "",
             }));
 
+            // Store cover image if returned
+            setCoverBase64(data.cover || null);
+
             setLookupMessage({
                 type: "success",
                 text: `Found: ${data.title}`,
@@ -189,6 +212,11 @@ export function WorkFormDialog({ open, onOpenChange, editingWork, onSaved, autoF
                 if (formData.call_number !== (editingWork.call_number ?? ""))
                     updates.call_number = formData.call_number;
 
+                // Include cover if one was uploaded
+                if (coverBase64) {
+                    updates.cover = coverBase64;
+                }
+
                 if (Object.keys(updates).length === 0) {
                     onOpenChange(false);
                     return;
@@ -209,10 +237,13 @@ export function WorkFormDialog({ open, onOpenChange, editingWork, onSaved, autoF
                 const updated = await res.json();
                 onSaved(updated, false);
             } else {
+                const payload = coverBase64
+                    ? { ...formData, cover: coverBase64 }
+                    : formData;
                 const res = await fetch("/api/staff/works", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(formData),
+                    body: JSON.stringify(payload),
                 });
 
                 if (!res.ok) {
@@ -312,17 +343,57 @@ export function WorkFormDialog({ open, onOpenChange, editingWork, onSaved, autoF
                             </div>
                         )}
 
-                        {/* ── Manual form fields ── */}
-                        <div className="space-y-2">
-                            <Label htmlFor="title">Title</Label>
-                            <Input
-                                id="title"
-                                required
-                                value={formData.title}
-                                onChange={(e) =>
-                                    setFormData((prev) => ({ ...prev, title: e.target.value }))
-                                }
+                        {/* ── Cover + Title ── */}
+                        <div className="flex gap-4">
+                            <input
+                                ref={coverInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleCoverFile}
                             />
+                            <div className="relative shrink-0">
+                                {coverBase64 ? (
+                                    <>
+                                        <img
+                                            src={`data:image/jpeg;base64,${coverBase64}`}
+                                            alt="Cover preview"
+                                            className="h-24 w-auto rounded border object-cover cursor-pointer"
+                                            onClick={() => coverInputRef.current?.click()}
+                                            title="Click to replace"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setCoverBase64(null)}
+                                            className="absolute -top-1.5 -right-1.5 rounded-full bg-destructive text-destructive-foreground h-5 w-5 flex items-center justify-center shadow-sm"
+                                            title="Remove cover"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => coverInputRef.current?.click()}
+                                        className="h-24 w-16 rounded border border-dashed border-muted-foreground/40 flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                                        title="Upload cover image"
+                                    >
+                                        <ImagePlus className="h-5 w-5" />
+                                        <span className="text-[10px] mt-1">Cover</span>
+                                    </button>
+                                )}
+                            </div>
+                            <div className="space-y-2 flex-1">
+                                <Label htmlFor="title">Title</Label>
+                                <Input
+                                    id="title"
+                                    required
+                                    value={formData.title}
+                                    onChange={(e) =>
+                                        setFormData((prev) => ({ ...prev, title: e.target.value }))
+                                    }
+                                />
+                            </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">

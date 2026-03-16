@@ -169,13 +169,15 @@ export async function searchWorks(params: {
     const result = await query(
         `SELECT w.id, w.title, w.date_published, w.publisher, w.editor,
                 w.lccn, w.isbn_10, w.isbn_13, w.media_type, w.number_of_pages,
-                w.language, w.location, w.call_number
+                w.language, w.location, w.call_number,
+                (w.cover IS NOT NULL) as has_cover,
+                updated_at
          FROM works w ${joinClause} ${whereClause}
          ORDER BY w.title ASC`,
         values.length > 0 ? values : undefined
     );
 
-    return result.rows as WorkDTO[];
+    return result.rows as (WorkDTO & { has_cover: boolean })[];
 }
 
 // ---------------------------------------------------------------------------

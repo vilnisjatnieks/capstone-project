@@ -28,6 +28,7 @@ import {
     ArrowDown,
     ArrowUpDown,
     Search,
+    BookOpen,
 } from "lucide-react";
 
 interface WorkTag {
@@ -51,6 +52,8 @@ interface Work {
     location: string | null;
     call_number: string | null;
     tags?: WorkTag[];
+    has_cover: boolean;
+    updated_at: string;
 }
 
 type ViewMode = "grid" | "list";
@@ -372,84 +375,50 @@ export function SearchClient() {
 
                     {/* ====== GRID VIEW ====== */}
                     {viewMode === "grid" && (
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid gap-3 grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
                             {processedResults.map((work) => (
                                 <Link
                                     key={work.id}
                                     href={`/works/${work.id}`}
-                                    className="block rounded-lg border bg-card p-5 shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-ring"
+                                    className="group block rounded-lg border bg-card shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-ring overflow-hidden"
                                 >
-                                    <div className="flex items-start justify-between gap-2 mb-3">
-                                        <h2 className="font-semibold text-lg leading-tight">
-                                            {work.title}
-                                        </h2>
-                                        {work.media_type && (
-                                            <Badge
-                                                variant="secondary"
-                                                className="shrink-0"
-                                            >
-                                                {work.media_type
-                                                    .charAt(0)
-                                                    .toUpperCase() +
-                                                    work.media_type.slice(1)}
-                                            </Badge>
+                                    {/* Cover */}
+                                    <div className="aspect-[3/4] relative bg-muted">
+                                        {work.has_cover ? (
+                                            <img
+                                                src={`/api/works/${work.id}/cover?v=${work.updated_at}`}
+                                                alt=""
+                                                className="absolute inset-0 w-full h-full object-cover"
+                                                loading="lazy"
+                                            />
+                                        ) : (
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
+                                                <BookOpen className="h-8 w-8 opacity-30" />
+                                            </div>
                                         )}
                                     </div>
 
-                                    <div className="space-y-1 text-sm text-muted-foreground">
-                                        {work.call_number && (
-                                            <p>
-                                                <span className="font-medium text-foreground">
-                                                    Call Number:
-                                                </span>{" "}
-                                                {work.call_number}
-                                            </p>
-                                        )}
+                                    {/* Details */}
+                                    <div className="p-2 space-y-0.5">
+                                        <h2 className="font-semibold text-xs leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                                            {work.title}
+                                        </h2>
                                         {work.editor && (
-                                            <p>
-                                                <span className="font-medium text-foreground">
-                                                    Editor:
-                                                </span>{" "}
+                                            <p className="text-xs text-muted-foreground truncate">
                                                 {work.editor}
                                             </p>
                                         )}
-                                        {work.date_published && (
-                                            <p>
-                                                <span className="font-medium text-foreground">
-                                                    Published:
-                                                </span>{" "}
-                                                {extractYear(work.date_published)}
-                                            </p>
-                                        )}
-                                        {work.language && (
-                                            <p>
-                                                <span className="font-medium text-foreground">
-                                                    Language:
-                                                </span>{" "}
-                                                {work.language}
-                                            </p>
-                                        )}
-                                        {work.number_of_pages && (
-                                            <p>
-                                                <span className="font-medium text-foreground">
-                                                    Pages:
-                                                </span>{" "}
-                                                {work.number_of_pages}
-                                            </p>
-                                        )}
-                                        {work.location && (
-                                            <p>
-                                                <span className="font-medium text-foreground">
-                                                    Location:
-                                                </span>{" "}
-                                                {work.location}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {work.publisher && (
-                                        <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
-                                            <p>Publisher: {work.publisher}</p>
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            {work.date_published && (
+                                                <span className="text-xs text-muted-foreground">
+                                                    {extractYear(work.date_published)}
+                                                </span>
+                                            )}
+                                            {work.media_type && (
+                                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                                    {work.media_type.charAt(0).toUpperCase() + work.media_type.slice(1)}
+                                                </Badge>
+                                            )}
                                         </div>
                                     )}
                                     {work.tags && work.tags.length > 0 && (
