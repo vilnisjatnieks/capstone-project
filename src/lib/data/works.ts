@@ -127,6 +127,7 @@ export async function getPublicWorkById(id: string): Promise<WorkWithCoverDTO | 
 }
 
 /** Search works (public). Returns DTOs without cover data. */
+/* TODO: Return DTO with cover data. Need all books to include cover data now. */
 export async function searchWorks(params: {
     q?: string;
     mediaType?: string;
