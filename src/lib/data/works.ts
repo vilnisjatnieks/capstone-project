@@ -161,7 +161,8 @@ export async function searchWorks(params: {
         `SELECT id, title, date_published, publisher, editor,
                 lccn, isbn_10, isbn_13, media_type, number_of_pages,
                 language, location, call_number,
-                (cover IS NOT NULL) as has_cover
+                (cover IS NOT NULL) as has_cover,
+                updated_at
          FROM works ${whereClause}
          ORDER BY title ASC`,
         values.length > 0 ? values : undefined

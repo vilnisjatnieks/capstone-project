@@ -46,6 +46,7 @@ interface Work {
     location: string | null;
     call_number: string | null;
     has_cover: boolean;
+    updated_at: string;
 }
 
 type ViewMode = "grid" | "list";
@@ -336,7 +337,7 @@ export function SearchClient() {
                                     <div className="aspect-[3/4] relative bg-muted">
                                         {work.has_cover ? (
                                             <img
-                                                src={`/api/works/${work.id}/cover`}
+                                                src={`/api/works/${work.id}/cover?v=${work.updated_at}`}
                                                 alt=""
                                                 className="absolute inset-0 w-full h-full object-cover"
                                                 loading="lazy"
