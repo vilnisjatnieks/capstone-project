@@ -420,9 +420,9 @@ export function SearchClient() {
                                                 </Badge>
                                             )}
                                         </div>
-                                    )}
+                                    </div>
                                     {work.tags && work.tags.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-2">
+                                        <div className="flex flex-wrap gap-1 px-2 pb-2">
                                             {work.tags.map((tag) => (
                                                 <Badge
                                                     key={tag.id}
