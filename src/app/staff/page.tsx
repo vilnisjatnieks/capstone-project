@@ -3,8 +3,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { getAllWorks } from "@/lib/data/works";
 import { getAllCheckouts } from "@/lib/data/checkouts";
 import { getAllUsers } from "@/lib/data/users";
+import { getAllTags } from "@/lib/data/tags";
 import { StaffWorksClient } from "./staff-works-client";
 import { StaffCheckoutsClient } from "./staff-checkouts-client";
+import { StaffTagsClient } from "./staff-tags-client";
 
 export default async function StaffPage() {
     const user = await getCurrentUser();
@@ -13,10 +15,11 @@ export default async function StaffPage() {
         redirect("/");
     }
 
-    const [works, checkouts, users] = await Promise.all([
+    const [works, checkouts, users, tags] = await Promise.all([
         getAllWorks(),
         getAllCheckouts(),
         getAllUsers(),
+        getAllTags(),
     ]);
 
     return (
@@ -32,6 +35,10 @@ export default async function StaffPage() {
                     works={works}
                     users={users}
                 />
+            </section>
+            <section>
+                <h2 className="mb-6 text-2xl font-bold">Tags</h2>
+                <StaffTagsClient initialTags={tags} />
             </section>
         </div>
     );
