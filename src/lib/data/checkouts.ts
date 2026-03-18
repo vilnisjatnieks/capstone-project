@@ -201,6 +201,9 @@ export async function createCheckout(input: {
         [input.work_id, input.user_id, input.due_date]
     );
 
+    // Remove any hold on this work since it's now checked out
+    await query("DELETE FROM holds WHERE work_id = $1", [input.work_id]);
+
     return result.rows[0] as CheckoutBaseDTO;
 }
 

@@ -8,6 +8,7 @@ import { getAllUsers } from "@/lib/data/users";
 import { isWorkCheckedOut, getActiveCheckoutForWork, getCheckoutById, hasReturnedCheckout } from "@/lib/data/checkouts";
 import { getTagsForWork, getAllTags } from "@/lib/data/tags";
 import { getWorkRatingSummary, getUserRatingForWork } from "@/lib/data/ratings";
+import { getHoldForWork } from "@/lib/data/holds";
 import { getCurrentUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { CheckoutWorkButton } from "./checkout-work-button";
 import { ReturnWorkButton } from "./return-work-button";
 import { WorkTagsEditor } from "@/app/staff/work-tags-editor";
 import { StarRating } from "@/components/star-rating";
+import { HoldWorkButton } from "./hold-work-button";
 
 export const revalidate = 0; // Dynamic page
 
@@ -39,6 +41,12 @@ export default async function WorkPage({ params }: PageProps) {
 
     const workTags = await getTagsForWork(work.id);
     const ratingSummary = await getWorkRatingSummary(work.id);
+    const hold = await getHoldForWork(work.id);
+
+    let holdStatus: "none" | "own" | "other" = "none";
+    if (hold) {
+        holdStatus = user && hold.user_id === user.id ? "own" : "other";
+    }
 
     let userRating = null;
     let canRate = false;
@@ -85,15 +93,24 @@ export default async function WorkPage({ params }: PageProps) {
                     </Link>
                 </Button>
 
-                {isStaffOrAdmin && (
-                    <div className="mr-4 flex gap-2">
-                        {isCheckedOut && activeCheckout && (
-                            <ReturnWorkButton checkout={activeCheckout} />
-                        )}
-                        <CheckoutWorkButton work={work} users={allUsers} disabled={isCheckedOut} />
-                        <EditWorkButton work={work} />
-                    </div>
-                )}
+                <div className="mr-4 flex gap-2">
+                    {user && (
+                        <HoldWorkButton
+                            workId={work.id}
+                            holdStatus={holdStatus}
+                            holdUserName={hold?.user_name}
+                        />
+                    )}
+                    {isStaffOrAdmin && (
+                        <>
+                            {isCheckedOut && activeCheckout && (
+                                <ReturnWorkButton checkout={activeCheckout} />
+                            )}
+                            <CheckoutWorkButton work={work} users={allUsers} disabled={isCheckedOut} />
+                            <EditWorkButton work={work} />
+                        </>
+                    )}
+                </div>
             </div>
 
             <div className="flex flex-col md:flex-row gap-8 lg:gap-12">

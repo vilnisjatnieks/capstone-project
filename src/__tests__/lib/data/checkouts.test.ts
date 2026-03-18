@@ -212,14 +212,39 @@ describe("createCheckout", () => {
         mockQuery.mockResolvedValueOnce({ rows: [{ id: "u1" }] }); // user exists
         mockQuery.mockResolvedValueOnce({ rows: [] }); // no active checkout
         mockQuery.mockResolvedValueOnce({ rows: [newCheckout] }); // insert
+        mockQuery.mockResolvedValueOnce({ rows: [] }); // delete holds
 
         const result = await createCheckout(validInput);
 
         expect(result).toEqual(newCheckout);
-        expect(mockQuery).toHaveBeenCalledTimes(4);
-        expect(mockQuery).toHaveBeenLastCalledWith(
+        expect(mockQuery).toHaveBeenCalledTimes(5);
+        expect(mockQuery).toHaveBeenNthCalledWith(
+            4,
             expect.stringContaining("INSERT"),
             ["w1", "u1", "2026-03-01"]
+        );
+    });
+
+    it("removes hold on work after successful checkout", async () => {
+        const newCheckout = {
+            id: "c1",
+            work_id: "w1",
+            user_id: "u1",
+            due_date: "2026-03-01",
+            returned_at: null,
+        };
+        mockQuery.mockResolvedValueOnce({ rows: [{ id: "w1" }] }); // work exists
+        mockQuery.mockResolvedValueOnce({ rows: [{ id: "u1" }] }); // user exists
+        mockQuery.mockResolvedValueOnce({ rows: [] }); // no active checkout
+        mockQuery.mockResolvedValueOnce({ rows: [newCheckout] }); // insert
+        mockQuery.mockResolvedValueOnce({ rows: [] }); // delete holds
+
+        await createCheckout(validInput);
+
+        expect(mockQuery).toHaveBeenNthCalledWith(
+            5,
+            expect.stringContaining("DELETE FROM holds WHERE work_id = $1"),
+            ["w1"]
         );
     });
 
@@ -230,6 +255,7 @@ describe("createCheckout", () => {
         mockQuery.mockResolvedValueOnce({ rows: [{ id: "u1" }] });
         mockQuery.mockResolvedValueOnce({ rows: [] });
         mockQuery.mockResolvedValueOnce({ rows: [newCheckout] });
+        mockQuery.mockResolvedValueOnce({ rows: [] }); // delete holds
 
         const result = await createCheckout(validInput);
 
