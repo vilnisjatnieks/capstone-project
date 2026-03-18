@@ -30,6 +30,7 @@ import {
     Search,
     BookOpen,
     TrendingUp,
+    Star,
 } from "lucide-react";
 
 interface WorkTag {
@@ -56,6 +57,8 @@ interface Work {
     has_cover: boolean;
     updated_at: string;
     checkout_count?: number;
+    average_rating: number | null;
+    rating_count: number;
 }
 
 type ViewMode = "grid" | "list";
@@ -66,6 +69,7 @@ type SortField =
     | "media_type"
     | "number_of_pages"
     | "popularity";
+    | "average_rating";
 type SortDirection = "asc" | "desc";
 
 const MEDIA_TYPES = ["book", "ebook", "audiobook", "periodical", "dvd", "other"];
@@ -77,6 +81,7 @@ const SORT_FIELD_LABELS: Record<SortField, string> = {
     media_type: "Media Type",
     number_of_pages: "Pages",
     popularity: "Most Popular",
+    average_rating: "Rating",
 };
 
 function extractYear(date: string): string {
@@ -458,6 +463,14 @@ export function SearchClient() {
                                                 </Badge>
                                             )}
                                         </div>
+                                        {work.average_rating != null && (
+                                            <div className="flex items-center gap-1">
+                                                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                                <span className="text-xs text-muted-foreground">
+                                                    {work.average_rating.toFixed(1)}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                     {work.tags && work.tags.length > 0 && (
                                         <div className="flex flex-wrap gap-1 px-2 pb-2">
@@ -546,6 +559,19 @@ export function SearchClient() {
                                     {sortField === "popularity" && (
                                         <TableHead>Checkouts</TableHead>
                                     )}
+                                    <TableHead>
+                                        <button
+                                            className="flex items-center font-medium hover:text-foreground transition-colors"
+                                            onClick={() =>
+                                                handleColumnSort(
+                                                    "average_rating"
+                                                )
+                                            }
+                                        >
+                                            Rating
+                                            {renderSortIcon("average_rating")}
+                                        </button>
+                                    </TableHead>
                                     <TableHead>Tags</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -598,6 +624,21 @@ export function SearchClient() {
                                                 </Badge>
                                             </TableCell>
                                         )}
+                                        <TableCell>
+                                            {work.average_rating != null ? (
+                                                <div className="flex items-center gap-1">
+                                                    <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                                                    <span className="text-sm">
+                                                        {work.average_rating.toFixed(1)}
+                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        ({work.rating_count})
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                "—"
+                                            )}
+                                        </TableCell>
                                         <TableCell>
                                             {work.tags && work.tags.length > 0 ? (
                                                 <div className="flex flex-wrap gap-1">
