@@ -5,8 +5,9 @@ import { ArrowLeft, BookOpen, Clock, Globe, Hash, Library, MapPin, Building, Use
 
 import { getPublicWorkById } from "@/lib/data/works";
 import { getAllUsers } from "@/lib/data/users";
-import { isWorkCheckedOut, getActiveCheckoutForWork, getCheckoutById } from "@/lib/data/checkouts";
+import { isWorkCheckedOut, getActiveCheckoutForWork, getCheckoutById, hasReturnedCheckout } from "@/lib/data/checkouts";
 import { getTagsForWork, getAllTags } from "@/lib/data/tags";
+import { getWorkRatingSummary, getUserRatingForWork } from "@/lib/data/ratings";
 import { getCurrentUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { EditWorkButton } from "./edit-work-button";
 import { CheckoutWorkButton } from "./checkout-work-button";
 import { ReturnWorkButton } from "./return-work-button";
 import { WorkTagsEditor } from "@/app/staff/work-tags-editor";
+import { StarRating } from "@/components/star-rating";
 
 export const revalidate = 0; // Dynamic page
 
@@ -36,6 +38,18 @@ export default async function WorkPage({ params }: PageProps) {
     const isStaffOrAdmin = user?.role === "staff" || user?.role === "admin";
 
     const workTags = await getTagsForWork(work.id);
+    const ratingSummary = await getWorkRatingSummary(work.id);
+
+    let userRating = null;
+    let canRate = false;
+    if (user) {
+        const [ratingResult, returnedResult] = await Promise.all([
+            getUserRatingForWork(user.id, work.id),
+            hasReturnedCheckout(user.id, work.id),
+        ]);
+        userRating = ratingResult;
+        canRate = returnedResult;
+    }
 
     let allUsers: any[] = [];
     let allTags: any[] = [];
@@ -147,6 +161,15 @@ export default async function WorkPage({ params }: PageProps) {
                                 {work.publisher && <span>{work.publisher}</span>}
                             </div>
                         )}
+
+                        <StarRating
+                            value={userRating?.rating ?? null}
+                            averageRating={ratingSummary.average_rating}
+                            ratingCount={ratingSummary.rating_count}
+                            interactive={!!user}
+                            canRate={canRate}
+                            workId={work.id}
+                        />
                     </div>
 
                     <hr className="my-6 border-muted" />

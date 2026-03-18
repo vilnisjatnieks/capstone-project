@@ -113,6 +113,18 @@ export async function getUserCheckouts(userId: string): Promise<CheckoutDTO[]> {
     return result.rows as CheckoutDTO[];
 }
 
+/** Check if a user has at least one returned checkout for a work. */
+export async function hasReturnedCheckout(
+    userId: string,
+    workId: string
+): Promise<boolean> {
+    const result = await query(
+        "SELECT id FROM checkouts WHERE user_id = $1 AND work_id = $2 AND returned_at IS NOT NULL LIMIT 1",
+        [userId, workId]
+    );
+    return result.rows.length > 0;
+}
+
 /** Check if a specific work is currently checked out. Return true if checked out. */
 export async function isWorkCheckedOut(workId: string): Promise<boolean> {
     await requireStaffUser();
