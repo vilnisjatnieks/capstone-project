@@ -22,14 +22,16 @@ beforeEach(() => {
     jest.clearAllMocks();
 });
 
-// Helper: first call returns works, second returns tags for those works
+// Helper: first call returns works, second returns tags, third returns ratings
 function mockSearchWithTags(
     works: Record<string, unknown>[],
-    tagRows: Record<string, unknown>[] = []
+    tagRows: Record<string, unknown>[] = [],
+    ratingRows: Record<string, unknown>[] = []
 ) {
     mockQuery
-        .mockResolvedValueOnce({ rows: works })   // searchWorks
-        .mockResolvedValueOnce({ rows: tagRows }); // getTagsForWorks
+        .mockResolvedValueOnce({ rows: works })      // searchWorks
+        .mockResolvedValueOnce({ rows: tagRows })     // getTagsForWorks
+        .mockResolvedValueOnce({ rows: ratingRows }); // getWorkRatingSummaries
 }
 
 describe("GET /api/search/works", () => {
@@ -45,8 +47,8 @@ describe("GET /api/search/works", () => {
 
         expect(res.status).toBe(200);
         expect(body).toEqual([
-            { id: "1", title: "Book A", tags: [] },
-            { id: "2", title: "Book B", tags: [] },
+            { id: "1", title: "Book A", tags: [], average_rating: null, rating_count: 0 },
+            { id: "2", title: "Book B", tags: [], average_rating: null, rating_count: 0 },
         ]);
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("SELECT"),
