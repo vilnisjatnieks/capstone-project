@@ -68,7 +68,7 @@ type SortField =
     | "date_published"
     | "media_type"
     | "number_of_pages"
-    | "popularity";
+    | "popularity"
     | "average_rating";
 type SortDirection = "asc" | "desc";
 
