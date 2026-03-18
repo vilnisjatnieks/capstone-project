@@ -29,6 +29,7 @@ import {
     ArrowUpDown,
     Search,
     BookOpen,
+    TrendingUp,
     Star,
 } from "lucide-react";
 
@@ -55,6 +56,7 @@ interface Work {
     tags?: WorkTag[];
     has_cover: boolean;
     updated_at: string;
+    checkout_count?: number;
     average_rating: number | null;
     rating_count: number;
 }
@@ -66,6 +68,7 @@ type SortField =
     | "date_published"
     | "media_type"
     | "number_of_pages"
+    | "popularity";
     | "average_rating";
 type SortDirection = "asc" | "desc";
 
@@ -77,6 +80,7 @@ const SORT_FIELD_LABELS: Record<SortField, string> = {
     date_published: "Date Published",
     media_type: "Media Type",
     number_of_pages: "Pages",
+    popularity: "Most Popular",
     average_rating: "Rating",
 };
 
@@ -137,18 +141,41 @@ export function SearchClient() {
             .catch(() => {});
     }, []);
 
-    const fetchResults = useCallback(async (q: string, media: string, tag: string) => {
+    const fetchResults = useCallback(async (q: string, media: string, tag: string, sort: SortField) => {
         setLoading(true);
         try {
-            const params = new URLSearchParams();
-            if (q.trim()) params.set("q", q.trim());
-            if (media && media !== "all") params.set("media_type", media);
-            if (tag && tag !== "all") params.set("tag", tag);
+            if (sort === "popularity") {
+                const params = new URLSearchParams();
+                if (tag && tag !== "all") params.set("tag", tag);
 
-            const res = await fetch(`/api/search/works?${params.toString()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setResults(data);
+                const res = await fetch(`/api/search/popular?${params.toString()}`);
+                if (res.ok) {
+                    let data = await res.json();
+                    // Apply client-side text and media filters
+                    if (q.trim()) {
+                        const lowerQ = q.trim().toLowerCase();
+                        data = data.filter((w: Work) =>
+                            w.title.toLowerCase().includes(lowerQ) ||
+                            (w.publisher && w.publisher.toLowerCase().includes(lowerQ)) ||
+                            (w.editor && w.editor.toLowerCase().includes(lowerQ))
+                        );
+                    }
+                    if (media && media !== "all") {
+                        data = data.filter((w: Work) => w.media_type === media);
+                    }
+                    setResults(data);
+                }
+            } else {
+                const params = new URLSearchParams();
+                if (q.trim()) params.set("q", q.trim());
+                if (media && media !== "all") params.set("media_type", media);
+                if (tag && tag !== "all") params.set("tag", tag);
+
+                const res = await fetch(`/api/search/works?${params.toString()}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setResults(data);
+                }
             }
         } finally {
             setLoading(false);
@@ -159,10 +186,10 @@ export function SearchClient() {
     // Debounced search
     useEffect(() => {
         const timer = setTimeout(() => {
-            fetchResults(query, mediaFilter, tagFilter);
+            fetchResults(query, mediaFilter, tagFilter, sortField);
         }, 300);
         return () => clearTimeout(timer);
-    }, [query, mediaFilter, tagFilter, fetchResults]);
+    }, [query, mediaFilter, tagFilter, sortField, fetchResults]);
 
     // Distinct languages for filter dropdown
     const availableLanguages = useMemo(() => {
@@ -179,6 +206,11 @@ export function SearchClient() {
 
         if (languageFilter && languageFilter !== "all") {
             filtered = filtered.filter((w) => w.language === languageFilter);
+        }
+
+        // When sorting by popularity, data is already sorted by checkout_count DESC from the API
+        if (sortField === "popularity") {
+            return filtered;
         }
 
         const sorted = [...filtered].sort((a, b) =>
@@ -424,6 +456,12 @@ export function SearchClient() {
                                                     {work.media_type.charAt(0).toUpperCase() + work.media_type.slice(1)}
                                                 </Badge>
                                             )}
+                                            {work.checkout_count != null && (
+                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+                                                    <TrendingUp className="h-2.5 w-2.5" />
+                                                    {work.checkout_count}
+                                                </Badge>
+                                            )}
                                         </div>
                                         {work.average_rating != null && (
                                             <div className="flex items-center gap-1">
@@ -518,6 +556,9 @@ export function SearchClient() {
                                         </button>
                                     </TableHead>
                                     <TableHead>Publisher</TableHead>
+                                    {sortField === "popularity" && (
+                                        <TableHead>Checkouts</TableHead>
+                                    )}
                                     <TableHead>
                                         <button
                                             className="flex items-center font-medium hover:text-foreground transition-colors"
@@ -575,6 +616,14 @@ export function SearchClient() {
                                         <TableCell className="text-xs">
                                             {work.publisher ?? "—"}
                                         </TableCell>
+                                        {sortField === "popularity" && (
+                                            <TableCell>
+                                                <Badge variant="outline" className="gap-0.5">
+                                                    <TrendingUp className="h-3 w-3" />
+                                                    {work.checkout_count ?? 0}
+                                                </Badge>
+                                            </TableCell>
+                                        )}
                                         <TableCell>
                                             {work.average_rating != null ? (
                                                 <div className="flex items-center gap-1">

@@ -325,3 +325,66 @@ export async function rejectCheckoutExtension(
     if (result.rows.length === 0) return null;
     return result.rows[0] as CheckoutBaseDTO;
 }
+
+// ---------------------------------------------------------------------------
+// Public read operations (no auth required)
+// ---------------------------------------------------------------------------
+
+export interface PopularWorkDTO {
+    id: string;
+    title: string;
+    date_published: string | null;
+    publisher: string | null;
+    editor: string | null;
+    lccn: string | null;
+    isbn_10: string | null;
+    isbn_13: string | null;
+    media_type: string | null;
+    number_of_pages: number | null;
+    language: string | null;
+    location: string | null;
+    call_number: string | null;
+    has_cover: boolean;
+    updated_at: string;
+    checkout_count: number;
+}
+
+/**
+ * Get works ordered by checkout count (most popular first).
+ * Public — no auth required.
+ * Optionally filter by tag (genre) when tagId is provided.
+ */
+export async function getPopularWorks(tagId?: string): Promise<PopularWorkDTO[]> {
+    const conditions: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+
+    let tagJoin = "";
+    if (tagId) {
+        tagJoin = "JOIN work_tags wt ON wt.work_id = w.id";
+        conditions.push(`wt.tag_id = $${paramIndex}`);
+        values.push(tagId);
+        paramIndex++;
+    }
+
+    const whereClause =
+        conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const result = await query(
+        `SELECT w.id, w.title, w.date_published, w.publisher, w.editor,
+                w.lccn, w.isbn_10, w.isbn_13, w.media_type, w.number_of_pages,
+                w.language, w.location, w.call_number,
+                (w.cover IS NOT NULL) as has_cover,
+                w.updated_at,
+                COALESCE(COUNT(c.id), 0)::int AS checkout_count
+         FROM works w
+         LEFT JOIN checkouts c ON c.work_id = w.id
+         ${tagJoin} ${whereClause}
+         GROUP BY w.id
+         ORDER BY checkout_count DESC
+         LIMIT 50`,
+        values.length > 0 ? values : undefined
+    );
+
+    return result.rows as PopularWorkDTO[];
+}

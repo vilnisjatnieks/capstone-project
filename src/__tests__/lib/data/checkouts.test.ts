@@ -28,6 +28,7 @@ import {
     approveCheckoutExtension,
     rejectCheckoutExtension,
     getActiveCheckoutForWork,
+    getPopularWorks,
 } from "@/lib/data/checkouts";
 
 const staffUser = {
@@ -420,5 +421,64 @@ describe("rejectCheckoutExtension", () => {
             expect.stringContaining("extension_status = 'rejected'"),
             ["c1"]
         );
+    });
+});
+
+// ─── getPopularWorks ────────────────────────────────────────────────
+
+describe("getPopularWorks", () => {
+    it("returns works ordered by checkout count descending", async () => {
+        const works = [
+            { id: "w1", title: "Popular Book", checkout_count: 10 },
+            { id: "w2", title: "Less Popular", checkout_count: 3 },
+        ];
+        mockQuery.mockResolvedValue({ rows: works });
+
+        const result = await getPopularWorks();
+
+        expect(result).toEqual(works);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("COALESCE(COUNT(c.id)"),
+            undefined
+        );
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("ORDER BY checkout_count DESC"),
+            undefined
+        );
+    });
+
+    it("filters by tag when tagId is provided", async () => {
+        const works = [
+            { id: "w1", title: "Tagged Popular", checkout_count: 7 },
+        ];
+        mockQuery.mockResolvedValue({ rows: works });
+
+        const result = await getPopularWorks("tag-uuid-1");
+
+        expect(result).toEqual(works);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("JOIN work_tags"),
+            ["tag-uuid-1"]
+        );
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("wt.tag_id = $1"),
+            ["tag-uuid-1"]
+        );
+    });
+
+    it("returns empty array when no checkouts exist", async () => {
+        mockQuery.mockResolvedValue({ rows: [] });
+
+        const result = await getPopularWorks();
+
+        expect(result).toEqual([]);
+    });
+
+    it("does not call requireStaffUser (public access)", async () => {
+        mockGetCurrentUser.mockResolvedValue(null);
+        mockQuery.mockResolvedValue({ rows: [] });
+
+        // Should NOT throw even though there's no authenticated user
+        await expect(getPopularWorks()).resolves.toEqual([]);
     });
 });
