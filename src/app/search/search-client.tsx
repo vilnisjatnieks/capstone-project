@@ -29,6 +29,7 @@ import {
     ArrowUpDown,
     Search,
     BookOpen,
+    TrendingUp,
 } from "lucide-react";
 
 interface WorkTag {
@@ -54,6 +55,7 @@ interface Work {
     tags?: WorkTag[];
     has_cover: boolean;
     updated_at: string;
+    checkout_count?: number;
 }
 
 type ViewMode = "grid" | "list";
@@ -62,7 +64,8 @@ type SortField =
     | "call_number"
     | "date_published"
     | "media_type"
-    | "number_of_pages";
+    | "number_of_pages"
+    | "popularity";
 type SortDirection = "asc" | "desc";
 
 const MEDIA_TYPES = ["book", "ebook", "audiobook", "periodical", "dvd", "other"];
@@ -73,6 +76,7 @@ const SORT_FIELD_LABELS: Record<SortField, string> = {
     date_published: "Date Published",
     media_type: "Media Type",
     number_of_pages: "Pages",
+    popularity: "Most Popular",
 };
 
 function extractYear(date: string): string {
@@ -132,18 +136,41 @@ export function SearchClient() {
             .catch(() => {});
     }, []);
 
-    const fetchResults = useCallback(async (q: string, media: string, tag: string) => {
+    const fetchResults = useCallback(async (q: string, media: string, tag: string, sort: SortField) => {
         setLoading(true);
         try {
-            const params = new URLSearchParams();
-            if (q.trim()) params.set("q", q.trim());
-            if (media && media !== "all") params.set("media_type", media);
-            if (tag && tag !== "all") params.set("tag", tag);
+            if (sort === "popularity") {
+                const params = new URLSearchParams();
+                if (tag && tag !== "all") params.set("tag", tag);
 
-            const res = await fetch(`/api/search/works?${params.toString()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setResults(data);
+                const res = await fetch(`/api/search/popular?${params.toString()}`);
+                if (res.ok) {
+                    let data = await res.json();
+                    // Apply client-side text and media filters
+                    if (q.trim()) {
+                        const lowerQ = q.trim().toLowerCase();
+                        data = data.filter((w: Work) =>
+                            w.title.toLowerCase().includes(lowerQ) ||
+                            (w.publisher && w.publisher.toLowerCase().includes(lowerQ)) ||
+                            (w.editor && w.editor.toLowerCase().includes(lowerQ))
+                        );
+                    }
+                    if (media && media !== "all") {
+                        data = data.filter((w: Work) => w.media_type === media);
+                    }
+                    setResults(data);
+                }
+            } else {
+                const params = new URLSearchParams();
+                if (q.trim()) params.set("q", q.trim());
+                if (media && media !== "all") params.set("media_type", media);
+                if (tag && tag !== "all") params.set("tag", tag);
+
+                const res = await fetch(`/api/search/works?${params.toString()}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setResults(data);
+                }
             }
         } finally {
             setLoading(false);
@@ -154,10 +181,10 @@ export function SearchClient() {
     // Debounced search
     useEffect(() => {
         const timer = setTimeout(() => {
-            fetchResults(query, mediaFilter, tagFilter);
+            fetchResults(query, mediaFilter, tagFilter, sortField);
         }, 300);
         return () => clearTimeout(timer);
-    }, [query, mediaFilter, tagFilter, fetchResults]);
+    }, [query, mediaFilter, tagFilter, sortField, fetchResults]);
 
     // Distinct languages for filter dropdown
     const availableLanguages = useMemo(() => {
@@ -174,6 +201,11 @@ export function SearchClient() {
 
         if (languageFilter && languageFilter !== "all") {
             filtered = filtered.filter((w) => w.language === languageFilter);
+        }
+
+        // When sorting by popularity, data is already sorted by checkout_count DESC from the API
+        if (sortField === "popularity") {
+            return filtered;
         }
 
         const sorted = [...filtered].sort((a, b) =>
@@ -419,6 +451,12 @@ export function SearchClient() {
                                                     {work.media_type.charAt(0).toUpperCase() + work.media_type.slice(1)}
                                                 </Badge>
                                             )}
+                                            {work.checkout_count != null && (
+                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+                                                    <TrendingUp className="h-2.5 w-2.5" />
+                                                    {work.checkout_count}
+                                                </Badge>
+                                            )}
                                         </div>
                                     </div>
                                     {work.tags && work.tags.length > 0 && (
@@ -505,6 +543,9 @@ export function SearchClient() {
                                         </button>
                                     </TableHead>
                                     <TableHead>Publisher</TableHead>
+                                    {sortField === "popularity" && (
+                                        <TableHead>Checkouts</TableHead>
+                                    )}
                                     <TableHead>Tags</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -549,6 +590,14 @@ export function SearchClient() {
                                         <TableCell className="text-xs">
                                             {work.publisher ?? "—"}
                                         </TableCell>
+                                        {sortField === "popularity" && (
+                                            <TableCell>
+                                                <Badge variant="outline" className="gap-0.5">
+                                                    <TrendingUp className="h-3 w-3" />
+                                                    {work.checkout_count ?? 0}
+                                                </Badge>
+                                            </TableCell>
+                                        )}
                                         <TableCell>
                                             {work.tags && work.tags.length > 0 ? (
                                                 <div className="flex flex-wrap gap-1">
