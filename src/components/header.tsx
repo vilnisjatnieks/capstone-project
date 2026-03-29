@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { LogoutButton } from "@/components/logout-button";
+import { NotificationBell } from "@/components/notification-bell";
 import { Button } from "@/components/ui/button";
 
 export async function Header() {
@@ -31,6 +32,7 @@ export async function Header() {
               <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground" asChild>
                 <Link href="/profile">My Profile</Link>
               </Button>
+              <NotificationBell />
               <span className="text-sm text-primary-foreground/70 ml-2">
                 {user.name}
               </span>

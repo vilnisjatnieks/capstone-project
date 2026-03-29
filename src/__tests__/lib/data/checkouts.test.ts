@@ -29,6 +29,8 @@ import {
     rejectCheckoutExtension,
     getActiveCheckoutForWork,
     getPopularWorks,
+    getOverdueCheckouts,
+    markOverdueNotified,
 } from "@/lib/data/checkouts";
 
 const staffUser = {
@@ -445,6 +447,63 @@ describe("rejectCheckoutExtension", () => {
         expect(result).toEqual(updatedCheckout);
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("extension_status = 'rejected'"),
+            ["c1"]
+        );
+    });
+});
+
+// ─── getOverdueCheckouts ────────────────────────────────────────────
+
+describe("getOverdueCheckouts", () => {
+    it("returns overdue checkouts with joined data", async () => {
+        const checkouts = [
+            {
+                id: "c1",
+                user_id: "u1",
+                due_date: "2026-01-01T00:00:00Z",
+                user_email: "alice@example.com",
+                user_name: "Alice",
+                work_title: "Book A",
+            },
+        ];
+        mockQuery.mockResolvedValue({ rows: checkouts });
+
+        const result = await getOverdueCheckouts();
+
+        expect(result).toEqual(checkouts);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("c.returned_at IS NULL"),
+            undefined
+        );
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("c.due_date < NOW()"),
+            undefined
+        );
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("c.overdue_notified_at IS NULL"),
+            undefined
+        );
+    });
+
+    it("returns empty array when no overdue checkouts", async () => {
+        mockQuery.mockResolvedValue({ rows: [] });
+
+        const result = await getOverdueCheckouts();
+
+        expect(result).toEqual([]);
+    });
+});
+
+// ─── markOverdueNotified ────────────────────────────────────────────
+
+describe("markOverdueNotified", () => {
+    it("updates overdue_notified_at", async () => {
+        mockQuery.mockResolvedValue({ rowCount: 1, rows: [] });
+
+        await markOverdueNotified("c1");
+
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("UPDATE checkouts SET overdue_notified_at"),
             ["c1"]
         );
     });
