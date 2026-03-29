@@ -95,6 +95,28 @@ export async function getCheckoutById(
     return result.rows[0] as CheckoutDTO;
 }
 
+/** Get all checkouts for a given work ID, sorted newest first (staff only). */
+export async function getCheckoutHistoryForWork(
+    workId: string
+): Promise<CheckoutDTO[]> {
+    await requireStaffUser();
+
+    const result = await query(
+        `SELECT c.id, c.work_id, c.user_id, c.checked_out_at, c.due_date,
+                c.returned_at, c.reminder_sent_at, c.extension_status, c.created_at, c.updated_at,
+                w.title AS work_title,
+                u.name AS user_name, u.email AS user_email
+         FROM checkouts c
+         JOIN works w ON w.id = c.work_id
+         JOIN users u ON u.id = c.user_id
+         WHERE c.work_id = $1
+         ORDER BY c.checked_out_at DESC`,
+        [workId]
+    );
+
+    return result.rows as CheckoutDTO[];
+}
+
 /** Get all checkouts for a given user ID.  */
 export async function getUserCheckouts(userId: string): Promise<CheckoutDTO[]> {
     const result = await query(
