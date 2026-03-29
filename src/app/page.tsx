@@ -1,12 +1,17 @@
+import { getCurrentUser } from "@/lib/auth";
 import { SearchClient } from "./search/search-client";
+import { RecommendationsSection } from "@/components/recommendations-section";
 
-export default function Home() {
+export default async function Home() {
+  const user = await getCurrentUser();
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="text-4xl font-bold mb-2">Search the Catalog</h1>
       <p className="text-muted-foreground mb-8">
         Browse and search the Karson Institute Digital Library collection.
       </p>
+      {user && <RecommendationsSection />}
       <SearchClient />
     </div>
   );
