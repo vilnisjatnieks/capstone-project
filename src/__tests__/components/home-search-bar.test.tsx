@@ -15,7 +15,7 @@ beforeEach(() => {
 describe("HomeSearchBar", () => {
     it("renders search input and submit button", () => {
         render(<HomeSearchBar />);
-        expect(screen.getByPlaceholderText("Search the full catalog...")).toBeInTheDocument();
+        expect(screen.getByPlaceholderText("Search by title, publisher, editor, ISBN, or LCCN...")).toBeInTheDocument();
         expect(screen.getByRole("button", { name: /search/i })).toBeInTheDocument();
     });
 
@@ -23,7 +23,7 @@ describe("HomeSearchBar", () => {
         const user = userEvent.setup();
         render(<HomeSearchBar />);
 
-        await user.type(screen.getByPlaceholderText("Search the full catalog..."), "social work");
+        await user.type(screen.getByPlaceholderText("Search by title, publisher, editor, ISBN, or LCCN..."), "social work");
         await user.click(screen.getByRole("button", { name: /search/i }));
 
         expect(mockPush).toHaveBeenCalledWith("/search?q=social%20work");
