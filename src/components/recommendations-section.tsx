@@ -71,7 +71,7 @@ export function RecommendationsSection() {
                 {data.results.map((item) => (
                     <Link
                         key={item.id}
-                        href={`/works/${item.id}`}
+                        href={`/works/${item.id}?from=home`}
                         className="group block rounded-lg border bg-card shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-ring overflow-hidden"
                     >
                         {/* Cover */}

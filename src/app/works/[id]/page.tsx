@@ -22,13 +22,17 @@ import { HoldWorkButton } from "./hold-work-button";
 export const revalidate = 0; // Dynamic page
 
 interface PageProps {
-    params: Promise<{
-        id: string;
-    }>;
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ from?: string; returnTo?: string }>;
 }
 
-export default async function WorkPage({ params }: PageProps) {
+export default async function WorkPage({ params, searchParams }: PageProps) {
     const { id } = await params;
+    const { from, returnTo } = await searchParams;
+    const safeReturnTo = typeof returnTo === "string" && returnTo.startsWith("/search")
+        ? returnTo : null;
+    const backHref = from === "search" ? (safeReturnTo ?? "/search") : "/";
+    const backLabel = from === "search" ? "Back to Search" : "Back to Home";
 
     const work = await getPublicWorkById(id);
 
@@ -87,9 +91,9 @@ export default async function WorkPage({ params }: PageProps) {
             {/* Top Navigation Bar: Back button and Edit button */}
             <div className="flex justify-between items-center mb-6 -ml-4">
                 <Button variant="ghost" className="text-muted-foreground hover:text-foreground" asChild>
-                    <Link href="/search">
+                    <Link href={backHref}>
                         <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Search
+                        {backLabel}
                     </Link>
                 </Button>
 

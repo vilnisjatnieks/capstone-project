@@ -13,6 +13,11 @@ export async function Header() {
           <Link href="/" className="text-lg font-semibold text-primary-foreground">
             Home
           </Link>
+          <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground" asChild>
+            <Link href="/search">
+              Search
+            </Link>
+          </Button>
         </div>
 
         <div className="flex items-center gap-4">
