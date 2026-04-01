@@ -116,8 +116,8 @@ interface Tag {
     color: string | null;
 }
 
-export function SearchClient() {
-    const [query, setQuery] = useState("");
+export function SearchClient({ initialQuery = "" }: { initialQuery?: string }) {
+    const [query, setQuery] = useState(initialQuery);
     const [mediaFilter, setMediaFilter] = useState("all");
     const [tagFilter, setTagFilter] = useState("all");
     const [results, setResults] = useState<Work[]>([]);
@@ -199,6 +199,20 @@ export function SearchClient() {
         });
         return Array.from(langs).sort();
     }, [results]);
+
+    // Build return URL encoding current filter state (for "Back to Search" on work pages)
+    const searchReturnUrl = useMemo(() => {
+        const params = new URLSearchParams();
+        if (query.trim()) params.set("q", query.trim());
+        if (mediaFilter !== "all") params.set("media", mediaFilter);
+        if (tagFilter !== "all") params.set("tag", tagFilter);
+        if (languageFilter !== "all") params.set("lang", languageFilter);
+        if (sortField !== "title") params.set("sort", sortField);
+        if (sortDirection !== "asc") params.set("dir", sortDirection);
+        if (viewMode !== "grid") params.set("view", viewMode);
+        const qs = params.toString();
+        return `/search${qs ? "?" + qs : ""}`;
+    }, [query, mediaFilter, tagFilter, languageFilter, sortField, sortDirection, viewMode]);
 
     // Client-side filtering + sorting
     const processedResults = useMemo(() => {
@@ -416,7 +430,7 @@ export function SearchClient() {
                             {processedResults.map((work) => (
                                 <Link
                                     key={work.id}
-                                    href={`/works/${work.id}`}
+                                    href={`/works/${work.id}?from=search&returnTo=${encodeURIComponent(searchReturnUrl)}`}
                                     className="group block rounded-lg border bg-card shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-ring overflow-hidden"
                                 >
                                     {/* Cover */}
@@ -580,7 +594,7 @@ export function SearchClient() {
                                     <TableRow
                                         key={work.id}
                                         className="cursor-pointer hover:bg-muted/50"
-                                        onClick={() => router.push(`/works/${work.id}`)}
+                                        onClick={() => router.push(`/works/${work.id}?from=search&returnTo=${encodeURIComponent(searchReturnUrl)}`)}
                                     >
                                         <TableCell className="font-medium max-w-[280px] truncate">
                                             {work.title}

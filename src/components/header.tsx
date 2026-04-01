@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
+import { NotificationBell } from "@/components/notification-bell";
 import { Button } from "@/components/ui/button";
 import { CircleUser } from "lucide-react";
 
@@ -13,6 +14,9 @@ export async function Header() {
           <Link href="/" className="text-lg font-semibold text-primary-foreground">
             Home
           </Link>
+          <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground" asChild>
+            <Link href="/search">Search</Link>
+          </Button>
         </div>
 
         <div className="flex items-center gap-4">
@@ -20,14 +24,15 @@ export async function Header() {
             <>
               {user.role === "admin" && (
                 <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground" asChild>
-                  <Link href="/admin">Admin</Link>
+                  <Link href="/admin">User Management</Link>
                 </Button>
               )}
               {(user.role === "admin" || user.role === "staff") && (
                 <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground" asChild>
-                  <Link href="/staff">Staff</Link>
+                  <Link href="/staff">Item Management</Link>
                 </Button>
               )}
+              <NotificationBell />
               <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground" asChild>
                 <Link href="/profile"><CircleUser className="h-5 w-5" /></Link>
               </Button>
