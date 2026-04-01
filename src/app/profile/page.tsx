@@ -2,6 +2,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { getUserCheckouts } from "@/lib/data/checkouts";
 import { redirect } from "next/navigation";
 import { ProfileClient } from "./profile-client";
+import { LogoutButton } from "@/components/logout-button";
+import { Button } from "@/components/ui/button";
 
 export default async function ProfilePage() {
     const user = await getCurrentUser();
@@ -20,9 +22,13 @@ export default async function ProfilePage() {
                 <div className="space-y-1">
                     <p><span className="font-medium text-muted-foreground">Name:</span> {user.name}</p>
                     <p><span className="font-medium text-muted-foreground">Email:</span> {user.email}</p>
-                    {user.role !== 'user' && (
-                        <p><span className="font-medium text-muted-foreground">Role:</span> <span className="capitalize">{user.role}</span></p>
-                    )}
+                    <p><span className="font-medium text-muted-foreground">Role:</span> <span className="capitalize">{user.role}</span></p>
+                </div>
+                <div className="flex gap-3 mt-6">
+                    <Button variant="outline" asChild>
+                        <a href="mailto:vjatnieks@loyola.edu">Contact Staff</a>
+                    </Button>
+                    <LogoutButton />
                 </div>
             </div>
 

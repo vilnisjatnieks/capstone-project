@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { LogoutButton } from "@/components/logout-button";
 import { Button } from "@/components/ui/button";
+import { CircleUser } from "lucide-react";
 
 export async function Header() {
   const user = await getCurrentUser();
@@ -28,13 +28,9 @@ export async function Header() {
                   <Link href="/staff">Staff</Link>
                 </Button>
               )}
-              <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground" asChild>
-                <Link href="/profile">My Profile</Link>
+              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground" asChild>
+                <Link href="/profile"><CircleUser className="h-5 w-5" /></Link>
               </Button>
-              <span className="text-sm text-primary-foreground/70 ml-2">
-                {user.name}
-              </span>
-              <LogoutButton />
             </>
           ) : (
             <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground" asChild>
