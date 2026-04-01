@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { CheckoutDTO } from "@/lib/data/checkouts";
 import { Button } from "@/components/ui/button";
 
@@ -64,7 +65,7 @@ export function ProfileClient({
                     const isOverdue = !isReturned && new Date(checkout.due_date) < new Date();
 
                     return (
-                        <div key={checkout.id} className="bg-card border rounded-lg p-5 shadow-sm space-y-3">
+                        <Link key={checkout.id} href={`/works/${checkout.work_id}`} className="block bg-card border rounded-lg p-5 shadow-sm space-y-3 hover:shadow-md transition-shadow">
                             <div>
                                 <h3 className="font-semibold text-lg line-clamp-2" title={checkout.work_title}>
                                     {checkout.work_title}
@@ -126,7 +127,7 @@ export function ProfileClient({
                                     </>
                                 )}
                             </div>
-                        </div>
+                        </Link>
                     );
                 })}
             </div>

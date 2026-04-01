@@ -15,6 +15,7 @@ export interface CheckoutDTO {
     due_date: string;
     returned_at: string | null;
     reminder_sent_at: string | null;
+    overdue_notified_at: string | null;
     extension_status: "none" | "pending" | "approved" | "rejected";
     created_at: string;
     updated_at: string;
@@ -31,9 +32,19 @@ export interface CheckoutBaseDTO {
     due_date: string;
     returned_at: string | null;
     reminder_sent_at: string | null;
+    overdue_notified_at: string | null;
     extension_status: "none" | "pending" | "approved" | "rejected";
     created_at: string;
     updated_at: string;
+}
+
+export interface OverdueCheckoutDTO {
+    id: string;
+    user_id: string;
+    due_date: string;
+    user_email: string;
+    user_name: string;
+    work_title: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -412,4 +423,34 @@ export async function getPopularWorks(tagId?: string): Promise<PopularWorkDTO[]>
     );
 
     return result.rows as PopularWorkDTO[];
+}
+
+/**
+ * Get all active checkouts that are past their due date and haven't been notified yet.
+ */
+export async function getOverdueCheckouts(): Promise<OverdueCheckoutDTO[]> {
+    const result = await query(
+        `SELECT c.id, c.user_id, c.due_date,
+                u.email AS user_email, u.name AS user_name,
+                w.title AS work_title
+         FROM checkouts c
+         JOIN users u ON u.id = c.user_id
+         JOIN works w ON w.id = c.work_id
+         WHERE c.returned_at IS NULL
+           AND c.due_date < NOW()
+           AND c.overdue_notified_at IS NULL`
+    );
+
+    return result.rows as OverdueCheckoutDTO[];
+}
+
+/**
+ * Mark a checkout as having had an overdue notification sent.
+ */
+export async function markOverdueNotified(id: string): Promise<void> {
+    await query(
+        `UPDATE checkouts SET overdue_notified_at = NOW(), updated_at = NOW()
+         WHERE id = $1`,
+        [id]
+    );
 }
