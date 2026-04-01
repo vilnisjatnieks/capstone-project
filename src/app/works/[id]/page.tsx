@@ -5,7 +5,7 @@ import { ArrowLeft, BookOpen, Clock, Globe, Hash, Library, MapPin, Building, Use
 
 import { getPublicWorkById } from "@/lib/data/works";
 import { getAllUsers } from "@/lib/data/users";
-import { isWorkCheckedOut, getActiveCheckoutForWork, getCheckoutById, hasReturnedCheckout } from "@/lib/data/checkouts";
+import { isWorkCheckedOut, getActiveCheckoutForWork, getCheckoutById, hasReturnedCheckout, getCheckoutHistoryForWork } from "@/lib/data/checkouts";
 import { getTagsForWork, getAllTags } from "@/lib/data/tags";
 import { getWorkRatingSummary, getUserRatingForWork } from "@/lib/data/ratings";
 import { getHoldForWork } from "@/lib/data/holds";
@@ -18,17 +18,22 @@ import { ReturnWorkButton } from "./return-work-button";
 import { WorkTagsEditor } from "@/app/staff/work-tags-editor";
 import { StarRating } from "@/components/star-rating";
 import { HoldWorkButton } from "./hold-work-button";
+import { WorkCheckoutHistory } from "../work-checkout-history";
 
 export const revalidate = 0; // Dynamic page
 
 interface PageProps {
-    params: Promise<{
-        id: string;
-    }>;
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ from?: string; returnTo?: string }>;
 }
 
-export default async function WorkPage({ params }: PageProps) {
+export default async function WorkPage({ params, searchParams }: PageProps) {
     const { id } = await params;
+    const { from, returnTo } = await searchParams;
+    const safeReturnTo = typeof returnTo === "string" && returnTo.startsWith("/search")
+        ? returnTo : null;
+    const backHref = from === "search" ? (safeReturnTo ?? "/search") : "/";
+    const backLabel = from === "search" ? "Back to Search" : "Back to Home";
 
     const work = await getPublicWorkById(id);
 
@@ -63,6 +68,7 @@ export default async function WorkPage({ params }: PageProps) {
     let allTags: any[] = [];
     let isCheckedOut = false;
     let activeCheckout = null;
+    let checkoutHistory: any[] = [];
 
     if (isStaffOrAdmin) {
         allUsers = await getAllUsers();
@@ -74,6 +80,7 @@ export default async function WorkPage({ params }: PageProps) {
                 activeCheckout = await getCheckoutById(activeCheckoutId);
             }
         }
+        checkoutHistory = await getCheckoutHistoryForWork(work.id);
     }
 
     const yearPublished = work.date_published
@@ -87,9 +94,9 @@ export default async function WorkPage({ params }: PageProps) {
             {/* Top Navigation Bar: Back button and Edit button */}
             <div className="flex justify-between items-center mb-6 -ml-4">
                 <Button variant="ghost" className="text-muted-foreground hover:text-foreground" asChild>
-                    <Link href="/search">
+                    <Link href={backHref}>
                         <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Search
+                        {backLabel}
                     </Link>
                 </Button>
 
@@ -273,6 +280,9 @@ export default async function WorkPage({ params }: PageProps) {
 
                 </div>
             </div>
+            {isStaffOrAdmin && (
+                <WorkCheckoutHistory checkouts={checkoutHistory} />
+            )}
         </div>
     );
 }

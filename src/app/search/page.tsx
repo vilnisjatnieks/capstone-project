@@ -1,13 +1,18 @@
 import { SearchClient } from "./search-client";
 
-export default function SearchPage() {
+interface SearchPageProps {
+    searchParams: Promise<{ q?: string | string[] }>;
+}
+
+export default async function SearchPage({ searchParams }: SearchPageProps) {
+    const { q } = await searchParams;
+    const initialQuery = typeof q === "string" ? q : "";
+
     return (
         <div className="mx-auto max-w-7xl px-4 py-8">
-            <h1 className="text-4xl font-bold mb-2">Search the Catalog</h1>
-            <p className="text-muted-foreground mb-8">
-                Browse and search the Karson Institute Digital Library collection.
-            </p>
-            <SearchClient />
+            <h1 className="text-4xl font-bold mb-2">Search the Full Catalog</h1>
+            <br></br>
+            <SearchClient key={initialQuery} initialQuery={initialQuery} />
         </div>
     );
 }

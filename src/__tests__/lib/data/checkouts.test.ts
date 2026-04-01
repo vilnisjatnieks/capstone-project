@@ -31,6 +31,7 @@ import {
     getPopularWorks,
     getOverdueCheckouts,
     markOverdueNotified,
+    getCheckoutHistoryForWork,
 } from "@/lib/data/checkouts";
 
 const staffUser = {
@@ -565,5 +566,73 @@ describe("getPopularWorks", () => {
 
         // Should NOT throw even though there's no authenticated user
         await expect(getPopularWorks()).resolves.toEqual([]);
+    });
+});
+
+// ─── getCheckoutHistoryForWork ───────────────────────────────────────
+
+describe("getCheckoutHistoryForWork", () => {
+    it("throws Unauthorized when not authenticated", async () => {
+        mockGetCurrentUser.mockResolvedValue(null);
+        await expect(getCheckoutHistoryForWork("w1")).rejects.toThrow("Unauthorized");
+    });
+
+    it("throws Forbidden when role is user", async () => {
+        mockGetCurrentUser.mockResolvedValue(regularUser);
+        await expect(getCheckoutHistoryForWork("w1")).rejects.toThrow("Forbidden");
+    });
+
+    it("allows admin users", async () => {
+        mockGetCurrentUser.mockResolvedValue(adminUser);
+        mockQuery.mockResolvedValue({ rows: [] });
+        await expect(getCheckoutHistoryForWork("w1")).resolves.toEqual([]);
+    });
+
+    it("returns empty array when work has no checkouts", async () => {
+        mockQuery.mockResolvedValue({ rows: [] });
+        const result = await getCheckoutHistoryForWork("w1");
+        expect(result).toEqual([]);
+    });
+
+    it("returns checkouts with joined work and user data", async () => {
+        const checkouts = [
+            {
+                id: "c1",
+                work_id: "w1",
+                user_id: "u1",
+                work_title: "Book A",
+                user_name: "Alice",
+                user_email: "alice@example.com",
+            },
+            {
+                id: "c2",
+                work_id: "w1",
+                user_id: "u2",
+                work_title: "Book A",
+                user_name: "Bob",
+                user_email: "bob@example.com",
+            },
+        ];
+        mockQuery.mockResolvedValue({ rows: checkouts });
+
+        const result = await getCheckoutHistoryForWork("w1");
+
+        expect(result).toEqual(checkouts);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("JOIN works"),
+            ["w1"]
+        );
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("JOIN users"),
+            ["w1"]
+        );
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("WHERE c.work_id = $1"),
+            ["w1"]
+        );
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("ORDER BY c.checked_out_at DESC"),
+            ["w1"]
+        );
     });
 });
