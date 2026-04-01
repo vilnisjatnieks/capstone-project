@@ -103,6 +103,15 @@ export async function registerUser(
 // Read operations (staff)
 // ---------------------------------------------------------------------------
 
+/** List all staff and admin users (id + name) for internal notification use. */
+export async function getStaffAndAdminUsers(): Promise<{ id: string; name: string }[]> {
+    const result = await query(
+        `SELECT id, name FROM users WHERE role IN ('staff', 'admin') ORDER BY name ASC`
+    );
+
+    return result.rows as { id: string; name: string }[];
+}
+
 /** List all users with minimal fields (staff only). */
 export async function getAllUsers(): Promise<UserListDTO[]> {
     await requireStaffUser();
