@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findUserByEmail, registerUser } from "@/lib/data/users";
-import { hashPassword, createSession } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { hashPassword } from "@/lib/auth";
 import { validatePassword, validateEmail } from "@/lib/validation";
+import { createVerificationToken } from "@/lib/data/verification-tokens";
+import { sendVerificationEmail } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,26 +44,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hash password
+    // Hash password and create user
     const passwordHash = await hashPassword(password);
-
-    // Insert new user
     const user = await registerUser(email, name, passwordHash);
 
-    // Create session
-    const sessionId = await createSession(user.id);
+    // Create verification token (24h expiry) and send email
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const token = await createVerificationToken(user.id, "email_verification", expiresAt);
+    const appUrl = process.env.APP_URL || "http://localhost:3000";
+    const verificationUrl = `${appUrl}/api/auth/verify-email?token=${token}`;
+    const emailSent = await sendVerificationEmail(email, name, verificationUrl);
 
-    // Set session cookie
-    const cookieStore = await cookies();
-    cookieStore.set("session_id", sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
-    });
-
-    // Return user data (no password_hash)
     return NextResponse.json(
       {
         user: {
@@ -71,6 +63,7 @@ export async function POST(request: NextRequest) {
           name: user.name,
           role: user.role,
         },
+        emailSent,
       },
       { status: 201 }
     );

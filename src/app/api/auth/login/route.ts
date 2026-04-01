@@ -33,6 +33,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Require email verification
+    if (!user.email_verified_at) {
+      return NextResponse.json(
+        { error: "EMAIL_NOT_VERIFIED" },
+        { status: 403 }
+      );
+    }
+
     // Create session
     const sessionId = await createSession(user.id);
 

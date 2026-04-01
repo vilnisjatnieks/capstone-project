@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { getUserCheckouts } from "@/lib/data/checkouts";
 import { redirect } from "next/navigation";
-import { ProfileClient } from "./profile-client";
+import { ProfileClient, ChangePasswordForm } from "./profile-client";
 import { LogoutButton } from "@/components/logout-button";
 import { Button } from "@/components/ui/button";
 
@@ -30,6 +30,11 @@ export default async function ProfilePage() {
                     </Button>
                     <LogoutButton />
                 </div>
+            </div>
+
+            <div className="bg-card rounded-lg border shadow-sm p-6 mb-8">
+                <h2 className="text-xl font-semibold mb-4">Change Password</h2>
+                <ChangePasswordForm />
             </div>
 
             <h2 className="text-2xl font-bold mb-6">My Checkouts</h2>

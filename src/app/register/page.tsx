@@ -47,8 +47,8 @@ export default function RegisterPage() {
         return;
       }
 
-      // Auto-login successful - redirect to home
-      window.location.href = "/";
+      // Account created — user must verify email before logging in
+      window.location.href = "/verify-email";
     } catch {
       setError("An unexpected error occurred");
     } finally {

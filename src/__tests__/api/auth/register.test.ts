@@ -3,17 +3,8 @@
  */
 
 const mockHashPassword = jest.fn();
-const mockCreateSession = jest.fn();
 jest.mock("@/lib/auth", () => ({
   hashPassword: (pw: string) => mockHashPassword(pw),
-  createSession: (userId: string) => mockCreateSession(userId),
-}));
-
-const mockCookies = {
-  set: jest.fn(),
-};
-jest.mock("next/headers", () => ({
-  cookies: jest.fn(() => mockCookies),
 }));
 
 const mockFindUserByEmail = jest.fn();
@@ -22,6 +13,16 @@ jest.mock("@/lib/data/users", () => ({
   findUserByEmail: (email: string) => mockFindUserByEmail(email),
   registerUser: (email: string, name: string, passwordHash: string) =>
     mockRegisterUser(email, name, passwordHash),
+}));
+
+const mockCreateVerificationToken = jest.fn();
+jest.mock("@/lib/data/verification-tokens", () => ({
+  createVerificationToken: (...args: unknown[]) => mockCreateVerificationToken(...args),
+}));
+
+const mockSendVerificationEmail = jest.fn();
+jest.mock("@/lib/email", () => ({
+  sendVerificationEmail: (...args: unknown[]) => mockSendVerificationEmail(...args),
 }));
 
 import { POST } from "@/app/api/auth/register/route";
@@ -38,7 +39,8 @@ function makeRequest(body: Record<string, unknown>): NextRequest {
 beforeEach(() => {
   jest.clearAllMocks();
   mockHashPassword.mockResolvedValue("hashed-password");
-  mockCreateSession.mockResolvedValue("session-id-123");
+  mockCreateVerificationToken.mockResolvedValue("token-uuid-123");
+  mockSendVerificationEmail.mockResolvedValue(true);
 });
 
 describe("POST /api/auth/register", () => {
@@ -159,7 +161,7 @@ describe("POST /api/auth/register", () => {
     expect(mockHashPassword).toHaveBeenCalledWith("MyP@ssw0rd1");
   });
 
-  it("creates session and sets cookie after registration", async () => {
+  it("creates verification token and sends email after registration", async () => {
     const newUser = {
       id: "user-123",
       email: "new@example.com",
@@ -176,14 +178,42 @@ describe("POST /api/auth/register", () => {
       name: "John Doe"
     }));
 
-    expect(mockCreateSession).toHaveBeenCalledWith("user-123");
-    expect(mockCookies.set).toHaveBeenCalledWith("session_id", "session-id-123", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60,
-    });
+    expect(mockCreateVerificationToken).toHaveBeenCalledWith(
+      "user-123",
+      "email_verification",
+      expect.any(Date)
+    );
+    expect(mockSendVerificationEmail).toHaveBeenCalledWith(
+      "new@example.com",
+      "John Doe",
+      expect.stringContaining("token-uuid-123")
+    );
+  });
+
+  it("returns emailSent: true when email sends successfully", async () => {
+    const newUser = { id: "user-123", email: "new@example.com", name: "John Doe", role: "user" };
+    mockFindUserByEmail.mockResolvedValue(null);
+    mockRegisterUser.mockResolvedValue(newUser);
+    mockSendVerificationEmail.mockResolvedValue(true);
+
+    const res = await POST(makeRequest({ email: "new@example.com", password: "MyP@ssw0rd1", name: "John Doe" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.emailSent).toBe(true);
+  });
+
+  it("returns emailSent: false when email fails but still returns 201", async () => {
+    const newUser = { id: "user-123", email: "new@example.com", name: "John Doe", role: "user" };
+    mockFindUserByEmail.mockResolvedValue(null);
+    mockRegisterUser.mockResolvedValue(newUser);
+    mockSendVerificationEmail.mockResolvedValue(false);
+
+    const res = await POST(makeRequest({ email: "new@example.com", password: "MyP@ssw0rd1", name: "John Doe" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.emailSent).toBe(false);
   });
 
   it("does not expose password_hash in response", async () => {

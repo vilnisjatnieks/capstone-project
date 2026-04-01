@@ -74,6 +74,7 @@ export interface UserRow {
     password_hash: string;
     created_at: string;
     updated_at: string;
+    email_verified_at?: string | null;
 }
 
 /** Find a user by email. Returns the full row (incl. password_hash) or null. */
@@ -162,8 +163,8 @@ export async function createUser(input: CreateUserInput): Promise<UserAdminDTO> 
     const userRole = input.role || "user";
 
     const result = await query(
-        `INSERT INTO users (email, name, password_hash, role)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO users (email, name, password_hash, role, email_verified_at)
+         VALUES ($1, $2, $3, $4, NOW())
          RETURNING id, email, name, role, created_at, updated_at`,
         [input.email, input.name, passwordHash, userRole]
     );
@@ -231,6 +232,25 @@ export async function updateUser(
 
     if (result.rows.length === 0) return null;
     return result.rows[0] as UserAdminDTO;
+}
+
+/** Mark a user's email as verified. */
+export async function markEmailVerified(userId: string): Promise<void> {
+    await query(
+        "UPDATE users SET email_verified_at = NOW(), updated_at = NOW() WHERE id = $1",
+        [userId]
+    );
+}
+
+/** Update a user's password hash. */
+export async function updatePasswordHash(
+    userId: string,
+    passwordHash: string
+): Promise<void> {
+    await query(
+        "UPDATE users SET password_hash = $2, updated_at = NOW() WHERE id = $1",
+        [userId, passwordHash]
+    );
 }
 
 /** Delete a user (admin only). Cannot delete yourself. */

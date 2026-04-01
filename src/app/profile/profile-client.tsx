@@ -4,6 +4,85 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckoutDTO } from "@/lib/data/checkouts";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+export function ChangePasswordForm() {
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    async function handleSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        setError("");
+        setSuccess(false);
+        setLoading(true);
+
+        try {
+            const res = await fetch("/api/auth/change-password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ currentPassword, newPassword }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                setError(data.error || "Failed to update password");
+                return;
+            }
+
+            setSuccess(true);
+            setCurrentPassword("");
+            setNewPassword("");
+        } catch {
+            setError("An unexpected error occurred");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4 max-w-sm">
+            {success && (
+                <div className="rounded-md bg-green-50 p-3 text-sm text-green-800">
+                    Password updated successfully.
+                </div>
+            )}
+            {error && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                    {error}
+                </div>
+            )}
+            <div className="space-y-2">
+                <Label htmlFor="currentPassword">Current password</Label>
+                <Input
+                    id="currentPassword"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="newPassword">New password</Label>
+                <Input
+                    id="newPassword"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                />
+            </div>
+            <Button type="submit" disabled={loading}>
+                {loading ? "Updating..." : "Update Password"}
+            </Button>
+        </form>
+    );
+}
 
 export function ProfileClient({
     initialCheckouts,
