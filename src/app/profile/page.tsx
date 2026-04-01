@@ -30,6 +30,12 @@ export default async function ProfilePage() {
                     </Button>
                     <LogoutButton />
                 </div>
+                <div className="flex gap-3 mt-6">
+                    <Button variant="outline" asChild>
+                        <a href="mailto:vjatnieks@loyola.edu">Contact Staff</a>
+                    </Button>
+                    <LogoutButton />
+                </div>
             </div>
 
             <div className="bg-card rounded-lg border shadow-sm p-6 mb-8">
