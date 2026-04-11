@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -43,6 +44,7 @@ export function DeleteWorkDialog({ open, onOpenChange, work, onDeleted }: Delete
                 return;
             }
 
+            toast.success(`"${work.title}" deleted`);
             onDeleted(work.id);
             onOpenChange(false);
         } finally {

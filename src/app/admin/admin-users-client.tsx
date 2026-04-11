@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -149,6 +150,7 @@ export function AdminUsersClient({
         setUsers((prev) =>
           prev.map((u) => (u.id === updated.id ? updated : u))
         );
+        toast.success(`User "${updated.name}" updated`);
       } else {
         const res = await fetch("/api/admin/users", {
           method: "POST",
@@ -164,6 +166,7 @@ export function AdminUsersClient({
 
         const created = await res.json();
         setUsers((prev) => [created, ...prev]);
+        toast.success(`User "${created.name}" created`);
       }
 
       setFormOpen(false);
@@ -188,8 +191,10 @@ export function AdminUsersClient({
         return;
       }
 
+      const deletedName = deletingUser.name;
       setUsers((prev) => prev.filter((u) => u.id !== deletingUser.id));
       setDeleteOpen(false);
+      toast.success(`User "${deletedName}" deleted`);
       router.refresh();
     } finally {
       setSubmitting(false);
