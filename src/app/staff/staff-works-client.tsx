@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,8 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search } from "lucide-react";
+import { Search, Upload, Download, FileSpreadsheet } from "lucide-react";
+import { toast } from "sonner";
 import { WorkFormDialog } from "./work-form-dialog";
 import { DeleteWorkDialog } from "./delete-work-dialog";
 
@@ -62,6 +63,9 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [editingWork, setEditingWork] = useState<Work | null>(null);
     const [deletingWork, setDeletingWork] = useState<Work | null>(null);
+    const [importing, setImporting] = useState(false);
+    const [dragging, setDragging] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const filteredWorks = useMemo(() => {
         return works.filter((work) => {
@@ -104,10 +108,140 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
         router.refresh();
     }
 
+    async function handleImportFile(file: File) {
+        if (!file) return;
+        setImporting(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await fetch("/api/staff/works/import", {
+                method: "POST",
+                body: formData,
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                toast.error(data.error ?? "Import failed");
+                return;
+            }
+            const { imported, skipped } = data as {
+                imported: number;
+                skipped: { row: number; reason: string }[];
+            };
+            if (skipped.length === 0) {
+                toast.success(`${imported} work${imported !== 1 ? "s" : ""} imported`);
+            } else {
+                const rowList = skipped.map((s) => `row ${s.row} — ${s.reason}`).join(", ");
+                toast.success(
+                    `${imported} imported, ${skipped.length} skipped (${rowList})`
+                );
+            }
+            const worksRes = await fetch("/api/staff/works");
+            if (worksRes.ok) {
+                const updatedWorks = await worksRes.json();
+                setWorks(updatedWorks);
+            }
+        } catch {
+            toast.error("Import failed");
+        } finally {
+            setImporting(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    }
+
+    async function handleExport() {
+        try {
+            const res = await fetch("/api/staff/works/export");
+            if (!res.ok) {
+                toast.error("Export failed");
+                return;
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "works-export.xlsx";
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch {
+            toast.error("Export failed");
+        }
+    }
+
+    async function handleTemplateDownload() {
+        try {
+            const res = await fetch("/api/staff/works/template");
+            if (!res.ok) {
+                toast.error("Template download failed");
+                return;
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "works-import-template.xlsx";
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch {
+            toast.error("Template download failed");
+        }
+    }
+
+    function handleDragOver(e: React.DragEvent) {
+        e.preventDefault();
+        setDragging(true);
+    }
+
+    function handleDragLeave() {
+        setDragging(false);
+    }
+
+    function handleDrop(e: React.DragEvent) {
+        e.preventDefault();
+        setDragging(false);
+        const file = e.dataTransfer.files[0];
+        if (file) handleImportFile(file);
+    }
+
     return (
-        <div className="space-y-4">
+        <div
+            className={`space-y-4 relative${dragging ? " outline-dashed outline-2 outline-primary rounded-md" : ""}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+        >
+            {dragging && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 rounded-md pointer-events-none">
+                    <p className="text-primary font-medium text-lg">Drop Excel file to import</p>
+                </div>
+            )}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImportFile(file);
+                }}
+            />
             <div className="flex items-center gap-4">
                 <Button onClick={openAddDialog}>Add Work</Button>
+                <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={importing}
+                >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {importing ? "Importing…" : "Import Excel"}
+                </Button>
+                <Button variant="outline" onClick={handleExport}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Excel
+                </Button>
+                <Button variant="outline" onClick={handleTemplateDownload}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Template
+                </Button>
                 <div className="relative max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input

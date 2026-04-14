@@ -277,6 +277,50 @@ export async function updateWork(
     return result.rows[0] as WorkDTO;
 }
 
+/** Find a work by ISBN-10 or ISBN-13 (staff only). Returns the work id or null. */
+export async function findWorkByISBN(
+    isbn10: string | null,
+    isbn13: string | null
+): Promise<string | null> {
+    await requireStaffUser();
+
+    if (!isbn10 && !isbn13) return null;
+
+    const conditions: string[] = [];
+    const values: string[] = [];
+    let idx = 1;
+
+    if (isbn10) {
+        conditions.push(`isbn_10 = $${idx++}`);
+        values.push(isbn10);
+    }
+    if (isbn13) {
+        conditions.push(`isbn_13 = $${idx++}`);
+        values.push(isbn13);
+    }
+
+    const result = await query(
+        `SELECT id FROM works WHERE ${conditions.join(" OR ")} LIMIT 1`,
+        values
+    );
+
+    return result.rows.length > 0 ? (result.rows[0].id as string) : null;
+}
+
+/** Upsert a work (staff only). Updates if existingId given, otherwise creates. */
+export async function upsertWork(
+    input: CreateWorkInput,
+    existingId: string | null
+): Promise<{ work: WorkDTO; action: "created" | "updated" }> {
+    if (existingId) {
+        const work = await updateWork(existingId, input);
+        if (!work) throw new Error(`Work ${existingId} not found`);
+        return { work, action: "updated" };
+    }
+    const work = await createWork(input);
+    return { work, action: "created" };
+}
+
 /** Delete a work (staff only). Returns true if deleted, false if not found. */
 export async function deleteWork(id: string): Promise<boolean> {
     await requireStaffUser();
