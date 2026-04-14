@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,8 @@ export function CheckoutFormDialog({
                 return;
             }
 
+            const workTitle = availableWorks.find((w) => w.id === formData.work_id)?.title ?? "Item";
+            toast.success(`"${workTitle}" checked out`);
             onOpenChange(false);
             onCreated();
         } finally {

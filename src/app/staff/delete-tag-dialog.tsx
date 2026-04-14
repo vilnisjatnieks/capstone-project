@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -43,6 +44,7 @@ export function DeleteTagDialog({ open, onOpenChange, tag, onDeleted }: DeleteTa
                 return;
             }
 
+            toast.success(`Tag "${tag.name}" deleted`);
             onDeleted(tag.id);
             onOpenChange(false);
         } finally {
