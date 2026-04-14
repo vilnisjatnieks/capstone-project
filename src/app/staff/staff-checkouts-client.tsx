@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import {
 import { Search } from "lucide-react";
 import { CheckoutFormDialog } from "./checkout-form-dialog";
 import { ReturnCheckoutDialog } from "./return-checkout-dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface Checkout {
   id: string;
@@ -73,22 +75,35 @@ export function StaffCheckoutsClient({
     null,
   );
   const [loadingExtensionId, setLoadingExtensionId] = useState<string | null>(null);
+  const [rejectingCheckout, setRejectingCheckout] = useState<Checkout | null>(null);
 
-  const handleExtension = async (id: string, action: 'approve' | 'reject') => {
+  const handleApproveExtension = async (id: string) => {
     setLoadingExtensionId(id);
     try {
-      const res = await fetch(`/api/staff/checkouts/${id}/extend/${action}`, { method: 'POST' });
+      const res = await fetch(`/api/staff/checkouts/${id}/extend/approve`, { method: 'POST' });
       if (res.ok) {
+        toast.success("Extension approved");
         router.refresh();
       } else {
-        const data = await res.json();
-        alert(data.error || `Failed to ${action} extension`);
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Failed to approve extension");
       }
     } catch (e: any) {
-      alert(e.message);
+      toast.error(e.message || "Failed to approve extension");
     } finally {
       setLoadingExtensionId(null);
     }
+  };
+
+  const handleRejectExtension = async () => {
+    if (!rejectingCheckout) return;
+    const res = await fetch(`/api/staff/checkouts/${rejectingCheckout.id}/extend/reject`, { method: 'POST' });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to reject extension");
+    }
+    toast.success("Extension rejected");
+    router.refresh();
   };
 
   const checkedOutWorkIds = useMemo(() => {
@@ -242,7 +257,7 @@ export function StaffCheckoutsClient({
                           variant="default"
                           size="sm"
                           disabled={loadingExtensionId === checkout.id}
-                          onClick={() => handleExtension(checkout.id, 'approve')}
+                          onClick={() => handleApproveExtension(checkout.id)}
                         >
                           Approve Ext
                         </Button>
@@ -250,7 +265,7 @@ export function StaffCheckoutsClient({
                           variant="destructive"
                           size="sm"
                           disabled={loadingExtensionId === checkout.id}
-                          onClick={() => handleExtension(checkout.id, 'reject')}
+                          onClick={() => setRejectingCheckout(checkout)}
                         >
                           Reject
                         </Button>
@@ -277,6 +292,16 @@ export function StaffCheckoutsClient({
         onOpenChange={setReturnOpen}
         checkout={returningCheckout}
         onReturned={() => router.refresh()}
+      />
+
+      <ConfirmDialog
+        open={rejectingCheckout !== null}
+        onOpenChange={(open) => { if (!open) setRejectingCheckout(null); }}
+        title="Reject extension request?"
+        description="The borrower will keep their current due date."
+        confirmLabel="Reject"
+        destructive
+        onConfirm={handleRejectExtension}
       />
     </div>
   );

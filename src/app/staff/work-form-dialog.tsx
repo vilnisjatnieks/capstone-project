@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { ScanBarcode, Search, Loader2, CheckCircle2, AlertCircle, ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -235,6 +236,7 @@ export function WorkFormDialog({ open, onOpenChange, editingWork, onSaved, autoF
                 }
 
                 const updated = await res.json();
+                toast.success(`"${updated.title}" updated`);
                 onSaved(updated, false);
             } else {
                 const payload = coverBase64
@@ -253,6 +255,7 @@ export function WorkFormDialog({ open, onOpenChange, editingWork, onSaved, autoF
                 }
 
                 const created = await res.json();
+                toast.success(`"${created.title}" created`);
                 onSaved(created, true);
             }
 

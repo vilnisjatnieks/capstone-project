@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,6 +83,7 @@ export function TagFormDialog({ open, onOpenChange, editingTag, onSaved }: TagFo
                 }
 
                 const updated = await res.json();
+                toast.success(`Tag "${updated.name}" updated`);
                 onSaved(updated, false);
             } else {
                 const payload: Record<string, string | null> = { name: formData.name };
@@ -100,6 +102,7 @@ export function TagFormDialog({ open, onOpenChange, editingTag, onSaved }: TagFo
                 }
 
                 const created = await res.json();
+                toast.success(`Tag "${created.name}" created`);
                 onSaved(created, true);
             }
 

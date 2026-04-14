@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -46,6 +47,7 @@ export function ReturnCheckoutDialog({ open, onOpenChange, checkout, onReturned 
                 return;
             }
 
+            toast.success(`"${checkout.work_title}" returned`);
             onOpenChange(false);
             onReturned();
         } finally {

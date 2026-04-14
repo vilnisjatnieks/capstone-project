@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Plus, X, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import {
     CommandItem,
     CommandList,
 } from "@/components/ui/command";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface Tag {
     id: string;
@@ -35,7 +37,7 @@ export function WorkTagsEditor({ workId, currentTags, allTags }: WorkTagsEditorP
     const router = useRouter();
     const [tags, setTags] = useState<Tag[]>(currentTags);
     const [popoverOpen, setPopoverOpen] = useState(false);
-    const [removing, setRemoving] = useState<string | null>(null);
+    const [pendingRemoval, setPendingRemoval] = useState<Tag | null>(null);
 
     const availableTags = allTags.filter(
         (t) => !tags.some((ct) => ct.id === t.id)
@@ -54,30 +56,35 @@ export function WorkTagsEditor({ workId, currentTags, allTags }: WorkTagsEditorP
                 const addedTag = allTags.find((t) => t.id === tagId);
                 if (addedTag) {
                     setTags((prev) => [...prev, addedTag]);
+                    toast.success(`Tag "${addedTag.name}" added`);
                 }
                 router.refresh();
+            } else {
+                const data = await res.json().catch(() => ({}));
+                toast.error(data.error || "Failed to add tag");
             }
         } catch {
-            // silently fail
+            toast.error("Failed to add tag");
         }
     }
 
-    async function handleRemove(tagId: string) {
-        setRemoving(tagId);
-        try {
-            const res = await fetch(`/api/staff/works/${workId}/tags`, {
-                method: "DELETE",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tag_id: tagId }),
-            });
+    async function handleRemoveConfirmed() {
+        if (!pendingRemoval) return;
+        const res = await fetch(`/api/staff/works/${workId}/tags`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tag_id: pendingRemoval.id }),
+        });
 
-            if (res.ok) {
-                setTags((prev) => prev.filter((t) => t.id !== tagId));
-                router.refresh();
-            }
-        } finally {
-            setRemoving(null);
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || "Failed to remove tag");
         }
+
+        const removedName = pendingRemoval.name;
+        setTags((prev) => prev.filter((t) => t.id !== pendingRemoval.id));
+        toast.success(`Tag "${removedName}" removed`);
+        router.refresh();
     }
 
     return (
@@ -91,8 +98,8 @@ export function WorkTagsEditor({ workId, currentTags, allTags }: WorkTagsEditorP
                     {tag.name}
                     <button
                         className="ml-1 rounded-full hover:bg-black/20 p-0.5 transition-colors"
-                        onClick={() => handleRemove(tag.id)}
-                        disabled={removing === tag.id}
+                        onClick={() => setPendingRemoval(tag)}
+                        aria-label={`Remove tag ${tag.name}`}
                     >
                         <X className="h-3 w-3" />
                     </button>
@@ -137,6 +144,15 @@ export function WorkTagsEditor({ workId, currentTags, allTags }: WorkTagsEditorP
                     </PopoverContent>
                 </Popover>
             )}
+            <ConfirmDialog
+                open={pendingRemoval !== null}
+                onOpenChange={(open) => { if (!open) setPendingRemoval(null); }}
+                title="Remove tag?"
+                description={`Remove "${pendingRemoval?.name}" from this work?`}
+                confirmLabel="Remove"
+                destructive
+                onConfirm={handleRemoveConfirmed}
+            />
         </>
     );
 }
