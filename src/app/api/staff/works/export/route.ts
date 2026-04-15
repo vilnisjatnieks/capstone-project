@@ -1,7 +1,23 @@
 import { NextResponse } from "next/server";
-import * as xlsx from "xlsx";
+import ExcelJS from "exceljs";
 import { requireStaff } from "@/lib/staff";
 import { getAllWorks } from "@/lib/data/works";
+
+const HEADERS = [
+    "Title",
+    "Date Published",
+    "Publisher",
+    "Authors",
+    "Editor",
+    "LCCN",
+    "ISBN-10",
+    "ISBN-13",
+    "Media Type",
+    "Number of Pages",
+    "Language",
+    "Location",
+    "Call Number",
+];
 
 export async function GET() {
     const check = await requireStaff();
@@ -34,13 +50,14 @@ export async function GET() {
             "Call Number": w.call_number ?? "",
         }));
 
-        const workbook = xlsx.utils.book_new();
-        const worksheet = xlsx.utils.json_to_sheet(rows);
-        xlsx.utils.book_append_sheet(workbook, worksheet, "Works");
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("Works");
+        worksheet.columns = HEADERS.map((h) => ({ header: h, key: h }));
+        worksheet.addRows(rows);
 
-        const buffer: Buffer = xlsx.write(workbook, { type: "buffer", bookType: "xlsx" });
+        const buffer = await workbook.xlsx.writeBuffer();
 
-        return new NextResponse(new Uint8Array(buffer), {
+        return new NextResponse(new Uint8Array(buffer as ArrayBuffer), {
             headers: {
                 "Content-Type":
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
