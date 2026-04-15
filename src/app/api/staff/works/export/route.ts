@@ -14,7 +14,16 @@ export async function GET() {
             "Title": w.title,
             "Date Published": w.date_published ?? "",
             "Publisher": w.publisher ?? "",
-            "Editor": w.editor ?? "",
+            "Authors": w.authors
+                .filter((a) => a.role === "author")
+                .sort((a, b) => a.position - b.position)
+                .map((a) => a.name)
+                .join("; "),
+            "Editor": w.authors
+                .filter((a) => a.role === "editor")
+                .sort((a, b) => a.position - b.position)
+                .map((a) => a.name)
+                .join("; "),
             "LCCN": w.lccn ?? "",
             "ISBN-10": w.isbn_10 ?? "",
             "ISBN-13": w.isbn_13 ?? "",

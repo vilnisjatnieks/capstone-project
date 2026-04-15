@@ -74,13 +74,19 @@ describe("GET /api/staff/works", () => {
             { id: 1, title: "Work A" },
             { id: 2, title: "Work B" },
         ];
-        mockQuery.mockResolvedValue({ rows: works });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: works });
+        });
 
         const res = await GET();
         const body = await res.json();
 
         expect(res.status).toBe(200);
-        expect(body).toEqual(works);
+        expect(body).toEqual([
+            { id: 1, title: "Work A", authors: [] },
+            { id: 2, title: "Work B", authors: [] },
+        ]);
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("SELECT"),
             undefined
@@ -114,13 +120,16 @@ describe("POST /api/staff/works", () => {
 
     it("creates a work successfully", async () => {
         const newWork = { id: 1, title: "New Work", publisher: null };
-        mockQuery.mockResolvedValue({ rows: [newWork] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [newWork] });
+        });
 
         const res = await POST(makeRequest({ title: "New Work" }));
         const body = await res.json();
 
         expect(res.status).toBe(201);
-        expect(body).toEqual(newWork);
+        expect(body).toEqual({ ...newWork, authors: [] });
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("INSERT"),
             expect.arrayContaining(["New Work"])
@@ -129,14 +138,16 @@ describe("POST /api/staff/works", () => {
 
     it("creates a work with all fields", async () => {
         const newWork = { id: 2, title: "Full Work" };
-        mockQuery.mockResolvedValue({ rows: [newWork] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [newWork] });
+        });
 
         const res = await POST(
             makeRequest({
                 title: "Full Work",
                 date_published: "2024-01-01",
                 publisher: "Acme",
-                editor: "Editor",
                 lccn: "123",
                 isbn_10: "1234567890",
                 isbn_13: "1234567890123",
@@ -150,7 +161,7 @@ describe("POST /api/staff/works", () => {
         expect(res.status).toBe(201);
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("INSERT"),
-            expect.arrayContaining(["Full Work", "Acme", "Editor", 200, "English"])
+            expect.arrayContaining(["Full Work", "Acme", 200, "English"])
         );
     });
 });
@@ -178,7 +189,10 @@ describe("GET /api/staff/works/[id]", () => {
 
     it("returns a single work", async () => {
         const work = { id: 1, title: "Work A", cover: null };
-        mockQuery.mockResolvedValue({ rows: [work] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [work] });
+        });
         const req = new NextRequest("http://localhost:3000/api/staff/works/1", {
             method: "GET",
         });
@@ -186,7 +200,7 @@ describe("GET /api/staff/works/[id]", () => {
         const body = await res.json();
 
         expect(res.status).toBe(200);
-        expect(body).toEqual(work);
+        expect(body).toEqual({ ...work, authors: [] });
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("encode(cover"),
             ["1"]
@@ -222,7 +236,10 @@ describe("PUT /api/staff/works/[id]", () => {
 
     it("updates a work successfully", async () => {
         const updated = { id: 1, title: "Updated Title" };
-        mockQuery.mockResolvedValue({ rows: [updated] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [updated] });
+        });
 
         const req = new NextRequest("http://localhost:3000/api/staff/works/1", {
             method: "PUT",
@@ -233,7 +250,7 @@ describe("PUT /api/staff/works/[id]", () => {
         const body = await res.json();
 
         expect(res.status).toBe(200);
-        expect(body).toEqual(updated);
+        expect(body).toEqual({ ...updated, authors: [] });
     });
 
     it("returns 404 when work not found", async () => {

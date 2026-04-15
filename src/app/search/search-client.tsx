@@ -39,12 +39,20 @@ interface WorkTag {
     color: string | null;
 }
 
+interface WorkAuthor {
+    id: string;
+    name: string;
+    sort_name: string | null;
+    role: string;
+    position: number;
+}
+
 interface Work {
     id: string;
     title: string;
     date_published: string | null;
     publisher: string | null;
-    editor: string | null;
+    authors: WorkAuthor[];
     lccn: string | null;
     isbn_10: string | null;
     isbn_13: string | null;
@@ -157,7 +165,7 @@ export function SearchClient({ initialQuery = "" }: { initialQuery?: string }) {
                         data = data.filter((w: Work) =>
                             w.title.toLowerCase().includes(lowerQ) ||
                             (w.publisher && w.publisher.toLowerCase().includes(lowerQ)) ||
-                            (w.editor && w.editor.toLowerCase().includes(lowerQ))
+                            (w.authors ?? []).some((a) => a.name.toLowerCase().includes(lowerQ))
                         );
                     }
                     if (media && media !== "all") {
@@ -263,7 +271,7 @@ export function SearchClient({ initialQuery = "" }: { initialQuery?: string }) {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         id="search-input"
-                        placeholder="Search by title, publisher, editor, ISBN, or LCCN..."
+                        placeholder="Search by title, publisher, author, ISBN, or LCCN..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         className="pl-9"
@@ -454,11 +462,19 @@ export function SearchClient({ initialQuery = "" }: { initialQuery?: string }) {
                                         <h2 className="font-semibold text-xs leading-tight line-clamp-2 group-hover:text-primary transition-colors">
                                             {work.title}
                                         </h2>
-                                        {work.editor && (
-                                            <p className="text-xs text-muted-foreground truncate">
-                                                {work.editor}
-                                            </p>
-                                        )}
+                                        {(() => {
+                                            const authors = (work.authors ?? []).filter((a) => a.role === "author");
+                                            if (authors.length === 0) return null;
+                                            const display =
+                                                authors.length > 2
+                                                    ? `${authors[0].name}, ${authors[1].name} et al.`
+                                                    : authors.map((a) => a.name).join(", ");
+                                            return (
+                                                <p className="text-xs text-muted-foreground truncate">
+                                                    {display}
+                                                </p>
+                                            );
+                                        })()}
                                         <div className="flex items-center gap-1.5 flex-wrap">
                                             {work.date_published && (
                                                 <span className="text-xs text-muted-foreground">

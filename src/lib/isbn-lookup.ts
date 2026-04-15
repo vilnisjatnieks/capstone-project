@@ -16,6 +16,7 @@ export interface LookupResult {
     media_type: string | null;
     call_number: string | null;
     cover_url: string | null;
+    authors: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +82,7 @@ export function isValidISBN(isbn: string): boolean {
 
 interface GoogleVolumeInfo {
     title?: string;
+    authors?: string[];
     publisher?: string;
     publishedDate?: string;
     industryIdentifiers?: { type: string; identifier: string }[];
@@ -127,6 +129,7 @@ export function parseGoogleResult(info: GoogleVolumeInfo): LookupResult {
         media_type: mediaType,
         call_number: null, // Google Books does not provide LC call numbers
         cover_url: coverUrl,
+        authors: info.authors ?? [],
     };
 }
 
@@ -152,6 +155,8 @@ export async function fetchFromGoogle(isbn: string): Promise<LookupResult | null
 
 interface OpenLibraryBook {
     title?: string;
+    authors?: { name: string }[];
+    by_statement?: string;
     publishers?: { name: string }[];
     publish_date?: string;
     number_of_pages?: number;
@@ -181,6 +186,7 @@ export function parseOpenLibraryResult(book: OpenLibraryBook): LookupResult {
         media_type: "book",
         call_number: book.classifications?.lc_classifications?.[0] ?? null,
         cover_url: book.cover?.large ?? book.cover?.medium ?? null,
+        authors: book.authors?.map((a) => a.name).filter(Boolean) ?? [],
     };
 }
 

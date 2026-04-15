@@ -132,7 +132,16 @@ describe("parseGoogleResult", () => {
             media_type: "book",
             call_number: null,
             cover_url: null,
+            authors: [],
         });
+    });
+
+    it("extracts authors from Google volumeInfo", () => {
+        const result = parseGoogleResult({
+            title: "Coauthored",
+            authors: ["Jane Smith", "John Doe"],
+        });
+        expect(result.authors).toEqual(["Jane Smith", "John Doe"]);
     });
 
     it("extracts cover_url from imageLinks", () => {
@@ -157,6 +166,7 @@ describe("parseGoogleResult", () => {
             media_type: null,
             call_number: null,
             cover_url: null,
+            authors: [],
         });
     });
 
@@ -204,7 +214,16 @@ describe("parseOpenLibraryResult", () => {
             media_type: "book",
             call_number: "QA76.64 .D47 1995",
             cover_url: null,
+            authors: [],
         });
+    });
+
+    it("extracts authors array from Open Library", () => {
+        const result = parseOpenLibraryResult({
+            title: "Coauthored",
+            authors: [{ name: "Jane Smith" }, { name: "John Doe" }],
+        });
+        expect(result.authors).toEqual(["Jane Smith", "John Doe"]);
     });
 
     it("extracts cover_url from cover object", () => {
@@ -237,6 +256,7 @@ describe("parseOpenLibraryResult", () => {
             media_type: "book",
             call_number: null,
             cover_url: null,
+            authors: [],
         });
     });
 });
