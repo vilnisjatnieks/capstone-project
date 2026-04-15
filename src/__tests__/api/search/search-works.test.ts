@@ -22,16 +22,25 @@ beforeEach(() => {
     jest.clearAllMocks();
 });
 
-// Helper: first call returns works, second returns tags, third returns ratings
+// Helper: first call returns works, second returns author rows, third tags, fourth ratings
 function mockSearchWithTags(
     works: Record<string, unknown>[],
     tagRows: Record<string, unknown>[] = [],
     ratingRows: Record<string, unknown>[] = []
 ) {
-    mockQuery
-        .mockResolvedValueOnce({ rows: works })      // searchWorks
-        .mockResolvedValueOnce({ rows: tagRows })     // getTagsForWorks
-        .mockResolvedValueOnce({ rows: ratingRows }); // getWorkRatingSummaries
+    if (works.length === 0) {
+        // attachAuthorsToWorks short-circuits on empty input
+        mockQuery
+            .mockResolvedValueOnce({ rows: works })
+            .mockResolvedValueOnce({ rows: tagRows })
+            .mockResolvedValueOnce({ rows: ratingRows });
+    } else {
+        mockQuery
+            .mockResolvedValueOnce({ rows: works })
+            .mockResolvedValueOnce({ rows: [] })      // attachAuthorsToWorks
+            .mockResolvedValueOnce({ rows: tagRows })
+            .mockResolvedValueOnce({ rows: ratingRows });
+    }
 }
 
 describe("GET /api/search/works", () => {
@@ -47,8 +56,8 @@ describe("GET /api/search/works", () => {
 
         expect(res.status).toBe(200);
         expect(body).toEqual([
-            { id: "1", title: "Book A", tags: [], average_rating: null, rating_count: 0 },
-            { id: "2", title: "Book B", tags: [], average_rating: null, rating_count: 0 },
+            { id: "1", title: "Book A", authors: [], tags: [], average_rating: null, rating_count: 0 },
+            { id: "2", title: "Book B", authors: [], tags: [], average_rating: null, rating_count: 0 },
         ]);
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("SELECT"),

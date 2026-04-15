@@ -30,12 +30,20 @@ import { toast } from "sonner";
 import { WorkFormDialog } from "./work-form-dialog";
 import { DeleteWorkDialog } from "./delete-work-dialog";
 
+interface WorkAuthor {
+    id: string;
+    name: string;
+    sort_name: string | null;
+    role: string;
+    position: number;
+}
+
 interface Work {
     id: string;
     title: string;
     date_published: string | null;
     publisher: string | null;
-    editor: string | null;
+    authors: WorkAuthor[];
     lccn: string | null;
     isbn_10: string | null;
     isbn_13: string | null;

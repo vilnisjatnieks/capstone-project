@@ -7,12 +7,19 @@ import { getCurrentUser } from "@/lib/auth";
 // Types / DTOs
 // ---------------------------------------------------------------------------
 
+export interface WorkAuthorDTO {
+    id: string;
+    name: string;
+    sort_name: string | null;
+    role: string;
+    position: number;
+}
+
 export interface WorkDTO {
     id: string;
     title: string;
     date_published: string | null;
     publisher: string | null;
-    editor: string | null;
     lccn: string | null;
     isbn_10: string | null;
     isbn_13: string | null;
@@ -23,10 +30,17 @@ export interface WorkDTO {
     call_number: string | null;
     created_at: string;
     updated_at: string;
+    authors: WorkAuthorDTO[];
 }
 
 export interface WorkWithCoverDTO extends WorkDTO {
     cover: string | null;
+}
+
+export interface ContributorInput {
+    author_id: string;
+    role: string;
+    position: number;
 }
 
 export interface CreateWorkInput {
@@ -34,7 +48,6 @@ export interface CreateWorkInput {
     date_published?: string | null;
     publisher?: string | null;
     cover?: string | null; // base64-encoded
-    editor?: string | null;
     lccn?: string | null;
     isbn_10?: string | null;
     isbn_13?: string | null;
@@ -43,6 +56,7 @@ export interface CreateWorkInput {
     language?: string | null;
     location?: string | null;
     call_number?: string | null;
+    contributors?: ContributorInput[];
 }
 
 export interface UpdateWorkInput {
@@ -50,7 +64,6 @@ export interface UpdateWorkInput {
     date_published?: string | null;
     publisher?: string | null;
     cover?: string | null; // base64-encoded
-    editor?: string | null;
     lccn?: string | null;
     isbn_10?: string | null;
     isbn_13?: string | null;
@@ -59,6 +72,7 @@ export interface UpdateWorkInput {
     language?: string | null;
     location?: string | null;
     call_number?: string | null;
+    contributors?: ContributorInput[];
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +90,61 @@ async function requireStaffUser() {
     return user;
 }
 
+async function attachAuthorsToWorks<T extends { id: string }>(
+    works: T[]
+): Promise<(T & { authors: WorkAuthorDTO[] })[]> {
+    if (works.length === 0) return [];
+    const ids = works.map((w) => w.id);
+    const result = await query(
+        `SELECT wa.work_id, a.id, a.name, a.sort_name, wa.role, wa.position
+         FROM work_authors wa
+         JOIN authors a ON a.id = wa.author_id
+         WHERE wa.work_id = ANY($1::uuid[])
+         ORDER BY wa.position ASC`,
+        [ids]
+    );
+    const byWork = new Map<string, WorkAuthorDTO[]>();
+    for (const row of result.rows as Array<{
+        work_id: string;
+        id: string;
+        name: string;
+        sort_name: string | null;
+        role: string;
+        position: number;
+    }>) {
+        const list = byWork.get(row.work_id) ?? [];
+        list.push({
+            id: row.id,
+            name: row.name,
+            sort_name: row.sort_name,
+            role: row.role,
+            position: row.position,
+        });
+        byWork.set(row.work_id, list);
+    }
+    return works.map((w) => ({ ...w, authors: byWork.get(w.id) ?? [] }));
+}
+
+async function replaceContributors(
+    workId: string,
+    contributors: ContributorInput[]
+): Promise<void> {
+    await query(`DELETE FROM work_authors WHERE work_id = $1`, [workId]);
+    if (contributors.length === 0) return;
+    const values: unknown[] = [];
+    const placeholders: string[] = [];
+    contributors.forEach((c, i) => {
+        const base = i * 4;
+        placeholders.push(`($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`);
+        values.push(workId, c.author_id, c.role, c.position);
+    });
+    await query(
+        `INSERT INTO work_authors (work_id, author_id, role, position)
+         VALUES ${placeholders.join(", ")}`,
+        values
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Read operations
 // ---------------------------------------------------------------------------
@@ -85,13 +154,13 @@ export async function getAllWorks(): Promise<WorkDTO[]> {
     await requireStaffUser();
 
     const result = await query(
-        `SELECT id, created_at, title, date_published, publisher, editor,
+        `SELECT id, created_at, title, date_published, publisher,
                 lccn, isbn_10, isbn_13, media_type, number_of_pages, language,
                 location, call_number, updated_at
          FROM works ORDER BY created_at DESC`
     );
 
-    return result.rows as WorkDTO[];
+    return (await attachAuthorsToWorks(result.rows as WorkDTO[])) as WorkDTO[];
 }
 
 /** Get a single work by ID (staff only). Includes base64-encoded cover. */
@@ -101,14 +170,15 @@ export async function getWorkById(id: string): Promise<WorkWithCoverDTO | null> 
     const result = await query(
         `SELECT id, created_at, title, date_published, publisher,
                 encode(cover, 'base64') as cover,
-                editor, lccn, isbn_10, isbn_13, media_type, number_of_pages,
+                lccn, isbn_10, isbn_13, media_type, number_of_pages,
                 language, location, call_number, updated_at
          FROM works WHERE id = $1`,
         [id]
     );
 
     if (result.rows.length === 0) return null;
-    return result.rows[0] as WorkWithCoverDTO;
+    const [withAuthors] = await attachAuthorsToWorks(result.rows as WorkWithCoverDTO[]);
+    return withAuthors as WorkWithCoverDTO;
 }
 
 /** Get a single work by ID (public access). Includes base64-encoded cover. */
@@ -116,14 +186,15 @@ export async function getPublicWorkById(id: string): Promise<WorkWithCoverDTO | 
     const result = await query(
         `SELECT id, created_at, title, date_published, publisher,
                 encode(cover, 'base64') as cover,
-                editor, lccn, isbn_10, isbn_13, media_type, number_of_pages,
+                lccn, isbn_10, isbn_13, media_type, number_of_pages,
                 language, location, call_number, updated_at
          FROM works WHERE id = $1`,
         [id]
     );
 
     if (result.rows.length === 0) return null;
-    return result.rows[0] as WorkWithCoverDTO;
+    const [withAuthors] = await attachAuthorsToWorks(result.rows as WorkWithCoverDTO[]);
+    return withAuthors as WorkWithCoverDTO;
 }
 
 /** Search works (public). Returns DTOs without cover data. */
@@ -140,10 +211,14 @@ export async function searchWorks(params: {
         conditions.push(
             `(w.title ILIKE $${paramIndex}
               OR w.publisher ILIKE $${paramIndex}
-              OR w.editor ILIKE $${paramIndex}
               OR w.isbn_10 ILIKE $${paramIndex}
               OR w.isbn_13 ILIKE $${paramIndex}
-              OR w.lccn ILIKE $${paramIndex})`
+              OR w.lccn ILIKE $${paramIndex}
+              OR EXISTS (
+                SELECT 1 FROM work_authors wa
+                JOIN authors a ON a.id = wa.author_id
+                WHERE wa.work_id = w.id AND a.name ILIKE $${paramIndex}
+              ))`
         );
         values.push(`%${params.q}%`);
         paramIndex++;
@@ -167,7 +242,7 @@ export async function searchWorks(params: {
         conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const result = await query(
-        `SELECT w.id, w.title, w.date_published, w.publisher, w.editor,
+        `SELECT w.id, w.title, w.date_published, w.publisher,
                 w.lccn, w.isbn_10, w.isbn_13, w.media_type, w.number_of_pages,
                 w.language, w.location, w.call_number,
                 (w.cover IS NOT NULL) as has_cover,
@@ -177,7 +252,9 @@ export async function searchWorks(params: {
         values.length > 0 ? values : undefined
     );
 
-    return result.rows as (WorkDTO & { has_cover: boolean })[];
+    return (await attachAuthorsToWorks(
+        result.rows as (WorkDTO & { has_cover: boolean })[]
+    )) as (WorkDTO & { has_cover: boolean })[];
 }
 
 // ---------------------------------------------------------------------------
@@ -191,11 +268,11 @@ export async function createWork(input: CreateWorkInput): Promise<WorkDTO> {
     const coverBuffer = input.cover ? Buffer.from(input.cover, "base64") : null;
 
     const result = await query(
-        `INSERT INTO works (title, date_published, publisher, cover, editor,
+        `INSERT INTO works (title, date_published, publisher, cover,
                         lccn, isbn_10, isbn_13, media_type, number_of_pages,
                         language, location, call_number)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-         RETURNING id, created_at, title, date_published, publisher, editor,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         RETURNING id, created_at, title, date_published, publisher,
                    lccn, isbn_10, isbn_13, media_type, number_of_pages, language,
                    location, call_number, updated_at`,
         [
@@ -203,7 +280,6 @@ export async function createWork(input: CreateWorkInput): Promise<WorkDTO> {
             input.date_published || null,
             input.publisher || null,
             coverBuffer,
-            input.editor || null,
             input.lccn || null,
             input.isbn_10 || null,
             input.isbn_13 || null,
@@ -215,7 +291,14 @@ export async function createWork(input: CreateWorkInput): Promise<WorkDTO> {
         ]
     );
 
-    return result.rows[0] as WorkDTO;
+    const work = result.rows[0] as WorkDTO;
+
+    if (input.contributors && input.contributors.length > 0) {
+        await replaceContributors(work.id, input.contributors);
+    }
+
+    const [withAuthors] = await attachAuthorsToWorks([work]);
+    return withAuthors;
 }
 
 /** Update an existing work (staff only). */
@@ -229,7 +312,6 @@ export async function updateWork(
         title: input.title,
         date_published: input.date_published,
         publisher: input.publisher,
-        editor: input.editor,
         lccn: input.lccn,
         isbn_10: input.isbn_10,
         isbn_13: input.isbn_13,
@@ -258,23 +340,46 @@ export async function updateWork(
         }
     }
 
-    if (fields.length === 0) {
+    const hasContributorsUpdate = input.contributors !== undefined;
+
+    if (fields.length === 0 && !hasContributorsUpdate) {
         throw new Error("At least one field is required");
     }
 
-    fields.push(`updated_at = NOW()`);
-    values.push(id);
+    let work: WorkDTO | null = null;
 
-    const result = await query(
-        `UPDATE works SET ${fields.join(", ")} WHERE id = $${paramIndex}
-         RETURNING id, created_at, title, date_published, publisher, editor,
-                   lccn, isbn_10, isbn_13, media_type, number_of_pages, language,
-                   location, call_number, updated_at`,
-        values
-    );
+    if (fields.length > 0) {
+        fields.push(`updated_at = NOW()`);
+        values.push(id);
 
-    if (result.rows.length === 0) return null;
-    return result.rows[0] as WorkDTO;
+        const result = await query(
+            `UPDATE works SET ${fields.join(", ")} WHERE id = $${paramIndex}
+             RETURNING id, created_at, title, date_published, publisher,
+                       lccn, isbn_10, isbn_13, media_type, number_of_pages, language,
+                       location, call_number, updated_at`,
+            values
+        );
+
+        if (result.rows.length === 0) return null;
+        work = result.rows[0] as WorkDTO;
+    } else {
+        const existing = await query(
+            `SELECT id, created_at, title, date_published, publisher,
+                    lccn, isbn_10, isbn_13, media_type, number_of_pages, language,
+                    location, call_number, updated_at
+             FROM works WHERE id = $1`,
+            [id]
+        );
+        if (existing.rows.length === 0) return null;
+        work = existing.rows[0] as WorkDTO;
+    }
+
+    if (hasContributorsUpdate) {
+        await replaceContributors(id, input.contributors ?? []);
+    }
+
+    const [withAuthors] = await attachAuthorsToWorks([work]);
+    return withAuthors;
 }
 
 /** Find a work by ISBN-10 or ISBN-13 (staff only). Returns the work id or null. */

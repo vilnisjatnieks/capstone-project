@@ -3,13 +3,16 @@ import * as xlsx from "xlsx";
 import { requireStaff } from "@/lib/staff";
 import { lookupByISBN, sanitizeISBN, isValidISBN } from "@/lib/isbn-lookup";
 import { findWorkByISBN, upsertWork } from "@/lib/data/works";
-import type { CreateWorkInput } from "@/lib/data/works";
+import type { CreateWorkInput, ContributorInput } from "@/lib/data/works";
+import {
+    findAuthorByNameCaseInsensitive,
+    createAuthor,
+} from "@/lib/data/authors";
 
 const COLUMN_MAP: Record<string, keyof CreateWorkInput> = {
     "Title": "title",
     "Date Published": "date_published",
     "Publisher": "publisher",
-    "Editor": "editor",
     "LCCN": "lccn",
     "ISBN-10": "isbn_10",
     "ISBN-13": "isbn_13",
@@ -19,6 +22,35 @@ const COLUMN_MAP: Record<string, keyof CreateWorkInput> = {
     "Location": "location",
     "Call Number": "call_number",
 };
+
+function splitNames(raw: unknown): string[] {
+    if (raw === null || raw === undefined) return [];
+    return String(raw)
+        .split(";")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+}
+
+async function resolveAuthorIds(
+    names: string[],
+    startPosition: number,
+    role: "author" | "editor"
+): Promise<ContributorInput[]> {
+    const out: ContributorInput[] = [];
+    for (let i = 0; i < names.length; i++) {
+        const name = names[i];
+        let author = await findAuthorByNameCaseInsensitive(name);
+        if (!author) {
+            author = await createAuthor({ name });
+        }
+        out.push({
+            author_id: author.id,
+            role,
+            position: startPosition + i,
+        });
+    }
+    return out;
+}
 
 export async function POST(request: NextRequest) {
     const check = await requireStaff();
@@ -61,8 +93,12 @@ export async function POST(request: NextRequest) {
                 }
             }
 
+            const excelAuthors = splitNames(row["Authors"]);
+            const excelEditors = splitNames(row["Editor"]);
+
             let merged: Partial<CreateWorkInput> = { ...excel };
             let existingId: string | null = null;
+            let autofillAuthors: string[] = [];
 
             // Try ISBN autofill (isbn_10 takes priority as lookup key)
             const rawIsbn = (excel.isbn_10 ?? excel.isbn_13) as string | undefined;
@@ -89,6 +125,7 @@ export async function POST(request: NextRequest) {
                             ...(autofill.media_type ? { media_type: autofill.media_type } : {}),
                             ...(autofill.call_number ? { call_number: autofill.call_number } : {}),
                         };
+                        autofillAuthors = autofill.authors ?? [];
                     } catch {
                         // Autofill failed — proceed with Excel data only
                     }
@@ -105,8 +142,22 @@ export async function POST(request: NextRequest) {
                 continue;
             }
 
+            // Authors precedence: autofill > Excel Authors column
+            const authorNames = autofillAuthors.length > 0 ? autofillAuthors : excelAuthors;
+
             try {
-                await upsertWork(merged as CreateWorkInput, existingId);
+                const authorContribs = await resolveAuthorIds(authorNames, 0, "author");
+                const editorContribs = await resolveAuthorIds(
+                    excelEditors,
+                    authorContribs.length,
+                    "editor"
+                );
+                const contributors = [...authorContribs, ...editorContribs];
+
+                await upsertWork(
+                    { ...(merged as CreateWorkInput), contributors },
+                    existingId
+                );
                 imported++;
             } catch (err) {
                 skipped.push({

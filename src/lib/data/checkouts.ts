@@ -371,7 +371,6 @@ export interface PopularWorkDTO {
     title: string;
     date_published: string | null;
     publisher: string | null;
-    editor: string | null;
     lccn: string | null;
     isbn_10: string | null;
     isbn_13: string | null;
@@ -407,7 +406,7 @@ export async function getPopularWorks(tagId?: string): Promise<PopularWorkDTO[]>
         conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const result = await query(
-        `SELECT w.id, w.title, w.date_published, w.publisher, w.editor,
+        `SELECT w.id, w.title, w.date_published, w.publisher,
                 w.lccn, w.isbn_10, w.isbn_13, w.media_type, w.number_of_pages,
                 w.language, w.location, w.call_number,
                 (w.cover IS NOT NULL) as has_cover,

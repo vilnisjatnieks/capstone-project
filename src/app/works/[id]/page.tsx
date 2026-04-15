@@ -178,13 +178,59 @@ export default async function WorkPage({ params, searchParams }: PageProps) {
                             {work.title}
                         </h1>
 
-                        {(work.editor || work.publisher) && (
-                            <div className="text-xl text-muted-foreground flex items-center gap-2 flex-wrap">
-                                {work.editor && <span className="font-medium">By {work.editor}</span>}
-                                {work.editor && work.publisher && <span>•</span>}
-                                {work.publisher && <span>{work.publisher}</span>}
-                            </div>
-                        )}
+                        {(() => {
+                            const authorList = work.authors
+                                .filter((a) => a.role === "author")
+                                .sort((a, b) => a.position - b.position);
+                            const editorList = work.authors
+                                .filter((a) => a.role === "editor")
+                                .sort((a, b) => a.position - b.position);
+                            if (authorList.length === 0 && editorList.length === 0 && !work.publisher) {
+                                return null;
+                            }
+                            return (
+                                <div className="text-xl text-muted-foreground space-y-1">
+                                    {authorList.length > 0 && (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-medium">By </span>
+                                            {authorList.map((a, i) => (
+                                                <span key={a.id}>
+                                                    <Link
+                                                        href={`/authors/${a.id}`}
+                                                        className="font-medium underline-offset-4 hover:underline"
+                                                    >
+                                                        {a.name}
+                                                    </Link>
+                                                    {i < authorList.length - 1 ? ", " : ""}
+                                                </span>
+                                            ))}
+                                            {work.publisher && <span>• {work.publisher}</span>}
+                                        </div>
+                                    )}
+                                    {authorList.length === 0 && work.publisher && (
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span>{work.publisher}</span>
+                                        </div>
+                                    )}
+                                    {editorList.length > 0 && (
+                                        <div className="flex items-center gap-2 flex-wrap text-base">
+                                            <span>Edited by </span>
+                                            {editorList.map((a, i) => (
+                                                <span key={a.id}>
+                                                    <Link
+                                                        href={`/authors/${a.id}`}
+                                                        className="underline-offset-4 hover:underline"
+                                                    >
+                                                        {a.name}
+                                                    </Link>
+                                                    {i < editorList.length - 1 ? ", " : ""}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                         <StarRating
                             value={userRating?.rating ?? null}

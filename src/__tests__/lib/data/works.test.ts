@@ -85,11 +85,17 @@ describe("getAllWorks", () => {
             { id: "w1", title: "Book A" },
             { id: "w2", title: "Book B" },
         ];
-        mockQuery.mockResolvedValue({ rows: works });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: works });
+        });
 
         const result = await getAllWorks();
 
-        expect(result).toEqual(works);
+        expect(result).toEqual([
+            { id: "w1", title: "Book A", authors: [] },
+            { id: "w2", title: "Book B", authors: [] },
+        ]);
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("SELECT"),
             undefined
@@ -122,11 +128,14 @@ describe("getWorkById", () => {
 
     it("returns a work with cover data", async () => {
         const work = { id: "w1", title: "Book A", cover: "base64data" };
-        mockQuery.mockResolvedValue({ rows: [work] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [work] });
+        });
 
         const result = await getWorkById("w1");
 
-        expect(result).toEqual(work);
+        expect(result).toEqual({ ...work, authors: [] });
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("encode(cover"),
             ["w1"]
@@ -150,11 +159,14 @@ describe("getPublicWorkById", () => {
         mockGetCurrentUser.mockResolvedValue(null);
 
         const work = { id: "w1", title: "Book A", cover: "base64data" };
-        mockQuery.mockResolvedValue({ rows: [work] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [work] });
+        });
 
         const result = await getPublicWorkById("w1");
 
-        expect(result).toEqual(work);
+        expect(result).toEqual({ ...work, authors: [] });
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("encode(cover"),
             ["w1"]
@@ -175,16 +187,19 @@ describe("getPublicWorkById", () => {
 describe("searchWorks", () => {
     it("searches without any filters", async () => {
         const works = [{ id: "w1", title: "Book A" }];
-        mockQuery.mockResolvedValue({ rows: works });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: works });
+        });
 
         const result = await searchWorks({});
 
-        expect(result).toEqual(works);
+        expect(result).toEqual([{ id: "w1", title: "Book A", authors: [] }]);
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("ORDER BY w.title ASC"),
             undefined
         );
-        // Should NOT have a WHERE clause
+        // The main search query (params === undefined) should NOT have a WHERE clause
         expect(mockQuery).toHaveBeenCalledWith(
             expect.not.stringContaining("WHERE"),
             undefined
@@ -286,11 +301,14 @@ describe("createWork", () => {
 
     it("creates a work with only required fields", async () => {
         const newWork = { id: "w1", title: "New Work" };
-        mockQuery.mockResolvedValue({ rows: [newWork] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [newWork] });
+        });
 
         const result = await createWork({ title: "New Work" });
 
-        expect(result).toEqual(newWork);
+        expect(result).toEqual({ ...newWork, authors: [] });
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("INSERT"),
             expect.arrayContaining(["New Work"])
@@ -299,13 +317,15 @@ describe("createWork", () => {
 
     it("creates a work with all fields", async () => {
         const newWork = { id: "w2", title: "Full Work" };
-        mockQuery.mockResolvedValue({ rows: [newWork] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [newWork] });
+        });
 
         const result = await createWork({
             title: "Full Work",
             date_published: "2024-01-01",
             publisher: "Acme",
-            editor: "Editor",
             lccn: "123",
             isbn_10: "1234567890",
             isbn_13: "1234567890123",
@@ -315,14 +335,13 @@ describe("createWork", () => {
             location: "Shelf A",
         });
 
-        expect(result).toEqual(newWork);
+        expect(result).toEqual({ ...newWork, authors: [] });
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("INSERT"),
             expect.arrayContaining([
                 "Full Work",
                 "2024-01-01",
                 "Acme",
-                "Editor",
                 200,
                 "English",
             ])
@@ -331,7 +350,10 @@ describe("createWork", () => {
 
     it("encodes cover from base64 to Buffer", async () => {
         const newWork = { id: "w3", title: "Work with Cover" };
-        mockQuery.mockResolvedValue({ rows: [newWork] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [newWork] });
+        });
 
         await createWork({ title: "Work with Cover", cover: "aGVsbG8=" });
 
@@ -342,12 +364,49 @@ describe("createWork", () => {
     });
 
     it("passes null for cover when not provided", async () => {
-        mockQuery.mockResolvedValue({ rows: [{ id: "w4" }] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [{ id: "w4" }] });
+        });
 
         await createWork({ title: "No Cover" });
 
         const callArgs = mockQuery.mock.calls[0][1];
         expect(callArgs[3]).toBeNull();
+    });
+
+    it("replaces contributors when provided", async () => {
+        const newWork = { id: "w5", title: "Coauthored" };
+        const authorRow = {
+            work_id: "w5",
+            id: "a1",
+            name: "Jane",
+            sort_name: null,
+            role: "author",
+            position: 0,
+        };
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors"))
+                return Promise.resolve({ rows: [authorRow] });
+            if (text.includes("DELETE FROM work_authors"))
+                return Promise.resolve({ rows: [] });
+            if (text.includes("INSERT INTO work_authors"))
+                return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [newWork] });
+        });
+
+        const result = await createWork({
+            title: "Coauthored",
+            contributors: [{ author_id: "a1", role: "author", position: 0 }],
+        });
+
+        expect(result.authors).toEqual([
+            { id: "a1", name: "Jane", sort_name: null, role: "author", position: 0 },
+        ]);
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("INSERT INTO work_authors"),
+            ["w5", "a1", "author", 0]
+        );
     });
 });
 
@@ -376,11 +435,14 @@ describe("updateWork", () => {
 
     it("updates a work successfully", async () => {
         const updated = { id: "w1", title: "Updated Title" };
-        mockQuery.mockResolvedValue({ rows: [updated] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [updated] });
+        });
 
         const result = await updateWork("w1", { title: "Updated Title" });
 
-        expect(result).toEqual(updated);
+        expect(result).toEqual({ ...updated, authors: [] });
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("UPDATE works SET"),
             expect.arrayContaining(["Updated Title", "w1"])
@@ -397,7 +459,10 @@ describe("updateWork", () => {
 
     it("handles cover update with base64 decoding", async () => {
         const updated = { id: "w1", title: "Work" };
-        mockQuery.mockResolvedValue({ rows: [updated] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [updated] });
+        });
 
         await updateWork("w1", { cover: "aGVsbG8=" });
 
@@ -412,7 +477,10 @@ describe("updateWork", () => {
 
     it("handles cover set to null (removal)", async () => {
         const updated = { id: "w1", title: "Work" };
-        mockQuery.mockResolvedValue({ rows: [updated] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [updated] });
+        });
 
         await updateWork("w1", { cover: null });
 
@@ -423,17 +491,47 @@ describe("updateWork", () => {
 
     it("updates multiple fields at once", async () => {
         const updated = { id: "w1", title: "New", publisher: "Acme" };
-        mockQuery.mockResolvedValue({ rows: [updated] });
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            return Promise.resolve({ rows: [updated] });
+        });
 
         const result = await updateWork("w1", {
             title: "New",
             publisher: "Acme",
         });
 
-        expect(result).toEqual(updated);
+        expect(result).toEqual({ ...updated, authors: [] });
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("UPDATE works SET"),
             expect.arrayContaining(["New", "Acme", "w1"])
+        );
+    });
+
+    it("replaces contributors only without updating fields", async () => {
+        const existing = { id: "w1", title: "Existing" };
+        mockQuery.mockImplementation((text: string) => {
+            if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
+            if (text.includes("DELETE FROM work_authors"))
+                return Promise.resolve({ rows: [] });
+            if (text.includes("INSERT INTO work_authors"))
+                return Promise.resolve({ rows: [] });
+            // SELECT on works for contributors-only path
+            return Promise.resolve({ rows: [existing] });
+        });
+
+        const result = await updateWork("w1", {
+            contributors: [{ author_id: "a1", role: "author", position: 0 }],
+        });
+
+        expect(result?.id).toBe("w1");
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("DELETE FROM work_authors"),
+            ["w1"]
+        );
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("INSERT INTO work_authors"),
+            ["w1", "a1", "author", 0]
         );
     });
 });
