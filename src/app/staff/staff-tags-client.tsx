@@ -12,12 +12,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Pencil, Trash2 } from "lucide-react";
 import { Search } from "lucide-react";
 import { TagFormDialog } from "./tag-form-dialog";
 import { DeleteTagDialog } from "./delete-tag-dialog";
@@ -132,24 +127,14 @@ export function StaffTagsClient({ initialTags }: StaffTagsClientProps) {
                                     )}
                                 </TableCell>
                                 <TableCell>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="sm">
-                                                ...
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => openEditDialog(tag)}>
-                                                Edit
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                                onClick={() => openDeleteDialog(tag)}
-                                                className="text-destructive"
-                                            >
-                                                Delete
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    <div className="flex gap-1">
+                                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(tag)}>
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="sm" className="text-destructive" onClick={() => openDeleteDialog(tag)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))

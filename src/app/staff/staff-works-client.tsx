@@ -19,13 +19,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Search, Upload, Download, FileSpreadsheet } from "lucide-react";
+import { Search, Upload, Download, FileSpreadsheet, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { WorkFormDialog } from "./work-form-dialog";
 import { DeleteWorkDialog } from "./delete-work-dialog";
@@ -308,24 +302,14 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
                                 <TableCell>{work.number_of_pages ?? "—"}</TableCell>
                                 <TableCell>{work.location ?? "—"}</TableCell>
                                 <TableCell onClick={(e) => e.stopPropagation()}>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="sm">
-                                                ...
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => openEditDialog(work)}>
-                                                Edit
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                                onClick={() => openDeleteDialog(work)}
-                                                className="text-destructive"
-                                            >
-                                                Delete
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    <div className="flex gap-1">
+                                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(work)}>
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="sm" className="text-destructive" onClick={() => openDeleteDialog(work)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))
