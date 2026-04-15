@@ -52,7 +52,7 @@ export function StarRating({
     const isClickable = interactive && canRate;
 
     return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
                 <div className="flex items-center gap-0.5">
                     {[1, 2, 3, 4, 5].map((star) => (
