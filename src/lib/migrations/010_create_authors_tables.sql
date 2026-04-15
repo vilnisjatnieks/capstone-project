@@ -8,7 +8,7 @@ CREATE TABLE authors (
 CREATE INDEX idx_authors_name_lower ON authors(lower(name));
 
 CREATE TABLE work_authors (
-    work_id UUID NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    work_id BIGINT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
     author_id UUID NOT NULL REFERENCES authors(id) ON DELETE RESTRICT,
     role TEXT NOT NULL DEFAULT 'author' CHECK (role IN ('author', 'editor', 'translator')),
     position INT NOT NULL DEFAULT 0,

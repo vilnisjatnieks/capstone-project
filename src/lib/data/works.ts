@@ -99,7 +99,7 @@ async function attachAuthorsToWorks<T extends { id: string }>(
         `SELECT wa.work_id, a.id, a.name, a.sort_name, wa.role, wa.position
          FROM work_authors wa
          JOIN authors a ON a.id = wa.author_id
-         WHERE wa.work_id = ANY($1::uuid[])
+         WHERE wa.work_id = ANY($1::bigint[])
          ORDER BY wa.position ASC`,
         [ids]
     );
