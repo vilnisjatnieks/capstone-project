@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as xlsx from "xlsx";
+import ExcelJS from "exceljs";
 import { requireStaff } from "@/lib/staff";
 import { lookupByISBN, sanitizeISBN, isValidISBN } from "@/lib/isbn-lookup";
 import { findWorkByISBN, upsertWork } from "@/lib/data/works";
@@ -29,6 +29,45 @@ function splitNames(raw: unknown): string[] {
         .split(";")
         .map((s) => s.trim())
         .filter((s) => s.length > 0);
+}
+
+function sheetToJson(ws: ExcelJS.Worksheet): Record<string, unknown>[] {
+    const headerRow = ws.getRow(1);
+    const headers: string[] = [];
+    headerRow.eachCell({ includeEmpty: true }, (cell, col) => {
+        headers[col] = String(cell.value ?? "").trim();
+    });
+
+    const out: Record<string, unknown>[] = [];
+    for (let r = 2; r <= ws.rowCount; r++) {
+        const row = ws.getRow(r);
+        const obj: Record<string, unknown> = {};
+        let any = false;
+        for (let c = 1; c < headers.length; c++) {
+            const key = headers[c];
+            if (!key) continue;
+            const raw = row.getCell(c).value;
+            let flat: unknown = raw;
+            if (raw && typeof raw === "object") {
+                if (raw instanceof Date) {
+                    flat = raw.toISOString().slice(0, 10);
+                } else if ("richText" in raw) {
+                    flat = (raw as { richText: { text: string }[] }).richText
+                        .map((t) => t.text)
+                        .join("");
+                } else if ("result" in raw) {
+                    flat = (raw as { result: unknown }).result;
+                } else if ("text" in raw) {
+                    flat = (raw as { text: string }).text;
+                }
+            }
+            if (flat === undefined || flat === "") flat = null;
+            obj[key] = flat;
+            if (flat !== null) any = true;
+        }
+        if (any) out.push(obj);
+    }
+    return out;
 }
 
 async function resolveAuthorIds(
@@ -65,12 +104,13 @@ export async function POST(request: NextRequest) {
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
-        const workbook = xlsx.read(buffer, { type: "buffer" });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const rows = xlsx.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
-            defval: null,
-        });
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.worksheets[0];
+        if (!worksheet) {
+            return NextResponse.json({ error: "Empty workbook" }, { status: 400 });
+        }
+        const rows = sheetToJson(worksheet);
 
         let imported = 0;
         const skipped: { row: number; reason: string }[] = [];

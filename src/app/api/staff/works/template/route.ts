@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import * as xlsx from "xlsx";
+import ExcelJS from "exceljs";
 import { requireStaff } from "@/lib/staff";
 
 const HEADERS = [
@@ -38,14 +38,14 @@ export async function GET() {
         "Call Number": "",
     };
 
-    const rows = [hint];
-    const workbook = xlsx.utils.book_new();
-    const worksheet = xlsx.utils.json_to_sheet(rows, { header: HEADERS });
-    xlsx.utils.book_append_sheet(workbook, worksheet, "Template");
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Template");
+    worksheet.columns = HEADERS.map((h) => ({ header: h, key: h }));
+    worksheet.addRow(hint);
 
-    const buffer: Buffer = xlsx.write(workbook, { type: "buffer", bookType: "xlsx" });
+    const buffer = await workbook.xlsx.writeBuffer();
 
-    return new NextResponse(new Uint8Array(buffer), {
+    return new NextResponse(new Uint8Array(buffer as ArrayBuffer), {
         headers: {
             "Content-Type":
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
