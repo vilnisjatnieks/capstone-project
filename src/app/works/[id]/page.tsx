@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, BookOpen, Clock, Globe, Hash, Library, MapPin, Building, User } from "lucide-react";
+import { ArrowLeft, BookOpen, Clock, Globe, Library, MapPin } from "lucide-react";
 
 import { getPublicWorkById } from "@/lib/data/works";
 import { getAllUsers } from "@/lib/data/users";
@@ -151,11 +151,6 @@ export default async function WorkPage({ params, searchParams }: PageProps) {
                                     {work.media_type.charAt(0).toUpperCase() + work.media_type.slice(1)}
                                 </Badge>
                             )}
-                            {work.language && (
-                                <Badge variant="outline" className="px-3 py-1 text-sm rounded-full">
-                                    {work.language}
-                                </Badge>
-                            )}
                             {isStaffOrAdmin ? (
                                 <WorkTagsEditor
                                     workId={work.id}
@@ -232,25 +227,27 @@ export default async function WorkPage({ params, searchParams }: PageProps) {
                             );
                         })()}
 
-                        <StarRating
-                            value={userRating?.rating ?? null}
-                            averageRating={ratingSummary.average_rating}
-                            ratingCount={ratingSummary.rating_count}
-                            interactive={!!user}
-                            canRate={canRate}
-                            workId={work.id}
-                        />
+                        <div className="mt-4">
+                            <StarRating
+                                value={userRating?.rating ?? null}
+                                averageRating={ratingSummary.average_rating}
+                                ratingCount={ratingSummary.rating_count}
+                                interactive={!!user}
+                                canRate={canRate}
+                                workId={work.id}
+                            />
+                        </div>
                     </div>
 
-                    <hr className="my-6 border-muted" />
+                    <hr className="border-muted" />
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-8">
-                        {work.date_published && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-5 gap-x-8">
+                        {yearPublished && (
                             <div className="flex items-start gap-3">
                                 <Clock className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Published</p>
-                                    <p className="text-base text-foreground">{work.date_published}</p>
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Published</p>
+                                    <p className="text-base text-foreground">{yearPublished}</p>
                                 </div>
                             </div>
                         )}
@@ -259,8 +256,8 @@ export default async function WorkPage({ params, searchParams }: PageProps) {
                             <div className="flex items-start gap-3">
                                 <BookOpen className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Format</p>
-                                    <p className="text-base text-foreground">{work.number_of_pages} Pages</p>
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Pages</p>
+                                    <p className="text-base text-foreground">{work.number_of_pages}</p>
                                 </div>
                             </div>
                         )}
@@ -269,7 +266,7 @@ export default async function WorkPage({ params, searchParams }: PageProps) {
                             <div className="flex items-start gap-3">
                                 <MapPin className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Location</p>
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Location</p>
                                     <p className="text-base text-foreground">{work.location}</p>
                                 </div>
                             </div>
@@ -279,8 +276,8 @@ export default async function WorkPage({ params, searchParams }: PageProps) {
                             <div className="flex items-start gap-3">
                                 <Library className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Call Number</p>
-                                    <p className="text-base font-semibold py-1 px-2 bg-muted rounded-md inline-block font-mono tracking-wider">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Call Number</p>
+                                    <p className="text-base font-mono font-semibold tracking-wider py-0.5 px-2 bg-muted rounded inline-block">
                                         {work.call_number}
                                     </p>
                                 </div>
@@ -291,38 +288,35 @@ export default async function WorkPage({ params, searchParams }: PageProps) {
                             <div className="flex items-start gap-3">
                                 <Globe className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-medium text-muted-foreground">Language</p>
+                                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Language</p>
                                     <p className="text-base text-foreground">{work.language}</p>
                                 </div>
                             </div>
                         )}
-
-                        {(work.isbn_13 || work.isbn_10 || work.lccn) && (
-                            <div className="flex items-start gap-3 opacity-75">
-                                <Hash className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                                <div className="space-y-3">
-                                    {work.isbn_13 && (
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">ISBN-13</p>
-                                            <p className="text-sm font-mono text-muted-foreground">{work.isbn_13}</p>
-                                        </div>
-                                    )}
-                                    {work.isbn_10 && (
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">ISBN-10</p>
-                                            <p className="text-sm font-mono text-muted-foreground">{work.isbn_10}</p>
-                                        </div>
-                                    )}
-                                    {work.lccn && (
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">LCCN</p>
-                                            <p className="text-sm font-mono text-muted-foreground">{work.lccn}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
                     </div>
+
+                    {(work.isbn_13 || work.isbn_10 || work.lccn) && (
+                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-2 border-t border-muted">
+                            {work.isbn_13 && (
+                                <span className="text-xs text-muted-foreground">
+                                    <span className="font-medium">ISBN-13</span>&nbsp;
+                                    <span className="font-mono">{work.isbn_13}</span>
+                                </span>
+                            )}
+                            {work.isbn_10 && (
+                                <span className="text-xs text-muted-foreground">
+                                    <span className="font-medium">ISBN-10</span>&nbsp;
+                                    <span className="font-mono">{work.isbn_10}</span>
+                                </span>
+                            )}
+                            {work.lccn && (
+                                <span className="text-xs text-muted-foreground">
+                                    <span className="font-medium">LCCN</span>&nbsp;
+                                    <span className="font-mono">{work.lccn}</span>
+                                </span>
+                            )}
+                        </div>
+                    )}
 
                 </div>
             </div>
