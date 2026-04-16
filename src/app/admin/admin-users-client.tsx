@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PaginationControls } from "@/components/pagination-controls";
 import { toast } from "sonner";
@@ -89,8 +89,12 @@ export function AdminUsersClient({
     setTotal(data.total);
   }, []);
 
+  const hydratedRef = useRef(true);
   useEffect(() => {
-    if (page === 1) return; // initial data already hydrated
+    if (hydratedRef.current) {
+      hydratedRef.current = false;
+      return;
+    }
     refetch(page);
   }, [page, refetch]);
 

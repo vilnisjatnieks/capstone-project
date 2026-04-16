@@ -82,8 +82,12 @@ export function StaffWorksClient({ initialWorks, initialTotal }: StaffWorksClien
         setTotal(data.total);
     }, []);
 
+    const hydratedRef = useRef(true);
     useEffect(() => {
-        if (page === 1) return;
+        if (hydratedRef.current) {
+            hydratedRef.current = false;
+            return;
+        }
         refetch(page);
     }, [page, refetch]);
 
