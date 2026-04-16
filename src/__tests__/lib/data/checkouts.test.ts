@@ -547,7 +547,7 @@ describe("getPopularWorks", () => {
         ];
         mockQuery.mockResolvedValue({ rows: works });
 
-        const result = await getPopularWorks(POP_PAGE, "tag-uuid-1");
+        const result = await getPopularWorks(POP_PAGE, { tagId: "tag-uuid-1" });
 
         expect(result.total).toBe(1);
         expect(mockQuery).toHaveBeenCalledWith(

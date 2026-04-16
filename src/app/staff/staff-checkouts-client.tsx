@@ -55,6 +55,7 @@ interface StaffCheckoutsClientProps {
   initialCheckouts: Checkout[];
   initialTotal: number;
   works: Work[];
+  activeCheckedOutIds: string[];
   users: User[];
 }
 
@@ -68,6 +69,7 @@ export function StaffCheckoutsClient({
   initialCheckouts,
   initialTotal,
   works,
+  activeCheckedOutIds,
   users,
 }: StaffCheckoutsClientProps) {
   const router = useRouter();
@@ -132,13 +134,10 @@ export function StaffCheckoutsClient({
     router.refresh();
   };
 
-  const checkedOutWorkIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const c of checkouts) {
-      if (!c.returned_at) ids.add(c.work_id);
-    }
-    return ids;
-  }, [checkouts]);
+  const checkedOutWorkIds = useMemo(
+    () => new Set(activeCheckedOutIds),
+    [activeCheckedOutIds]
+  );
 
   const availableWorks = useMemo(
     () => works.filter((w) => !checkedOutWorkIds.has(w.id)),

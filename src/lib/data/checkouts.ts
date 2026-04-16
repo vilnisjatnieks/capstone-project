@@ -182,6 +182,15 @@ export async function isWorkCheckedOut(workId: string): Promise<boolean> {
     return activeCheckout.rows.length > 0;
 }
 
+/** Get all currently-checked-out (not returned) work IDs. Staff only. */
+export async function getActiveCheckedOutWorkIds(): Promise<string[]> {
+    await requireStaffUser();
+    const result = await query(
+        "SELECT DISTINCT work_id FROM checkouts WHERE returned_at IS NULL"
+    );
+    return result.rows.map((r: { work_id: string }) => String(r.work_id));
+}
+
 /** Get the active (not returned) checkout ID for a specific work, if any. Return null if none. */
 export async function getActiveCheckoutForWork(
     workId: string
@@ -403,17 +412,51 @@ export interface PopularWorkDTO {
  */
 export async function getPopularWorks(
     pagination: PaginationParams,
-    tagId?: string
+    filters: {
+        tagId?: string;
+        q?: string;
+        mediaType?: string;
+        language?: string;
+    } = {}
 ): Promise<{ rows: PopularWorkDTO[]; total: number }> {
     const conditions: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
 
     let tagJoin = "";
-    if (tagId) {
+    if (filters.tagId) {
         tagJoin = "JOIN work_tags wt ON wt.work_id = w.id";
         conditions.push(`wt.tag_id = $${paramIndex}`);
-        values.push(tagId);
+        values.push(filters.tagId);
+        paramIndex++;
+    }
+
+    if (filters.q) {
+        conditions.push(
+            `(w.title ILIKE $${paramIndex}
+              OR w.publisher ILIKE $${paramIndex}
+              OR w.isbn_10 ILIKE $${paramIndex}
+              OR w.isbn_13 ILIKE $${paramIndex}
+              OR w.lccn ILIKE $${paramIndex}
+              OR EXISTS (
+                SELECT 1 FROM work_authors wa
+                JOIN authors a ON a.id = wa.author_id
+                WHERE wa.work_id = w.id AND a.name ILIKE $${paramIndex}
+              ))`
+        );
+        values.push(`%${filters.q}%`);
+        paramIndex++;
+    }
+
+    if (filters.mediaType) {
+        conditions.push(`w.media_type = $${paramIndex}`);
+        values.push(filters.mediaType);
+        paramIndex++;
+    }
+
+    if (filters.language) {
+        conditions.push(`w.language = $${paramIndex}`);
+        values.push(filters.language);
         paramIndex++;
     }
 

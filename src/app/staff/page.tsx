@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getAllWorks, getAllWorksForExport } from "@/lib/data/works";
-import { getAllCheckouts } from "@/lib/data/checkouts";
+import { getAllCheckouts, getActiveCheckedOutWorkIds } from "@/lib/data/checkouts";
 import { getAllUsers } from "@/lib/data/users";
 import { getAllTags } from "@/lib/data/tags";
 import { StaffWorksClient } from "./staff-works-client";
@@ -17,10 +17,11 @@ export default async function StaffPage() {
         redirect("/");
     }
 
-    const [worksPage, checkoutsPage, allWorks, users, tags] = await Promise.all([
+    const [worksPage, checkoutsPage, allWorks, activeCheckedOutIds, users, tags] = await Promise.all([
         getAllWorks(FIRST_PAGE),
         getAllCheckouts(FIRST_PAGE),
         getAllWorksForExport(),
+        getActiveCheckedOutWorkIds(),
         getAllUsers(),
         getAllTags(),
     ]);
@@ -40,6 +41,7 @@ export default async function StaffPage() {
                     initialCheckouts={checkoutsPage.rows}
                     initialTotal={checkoutsPage.total}
                     works={allWorks}
+                    activeCheckedOutIds={activeCheckedOutIds}
                     users={users}
                 />
             </section>
