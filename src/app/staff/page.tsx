@@ -1,12 +1,14 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { getAllWorks } from "@/lib/data/works";
-import { getAllCheckouts } from "@/lib/data/checkouts";
+import { getAllWorks, getAllWorksForExport } from "@/lib/data/works";
+import { getAllCheckouts, getActiveCheckedOutWorkIds } from "@/lib/data/checkouts";
 import { getAllUsers } from "@/lib/data/users";
 import { getAllTags } from "@/lib/data/tags";
 import { StaffWorksClient } from "./staff-works-client";
 import { StaffCheckoutsClient } from "./staff-checkouts-client";
 import { StaffTagsClient } from "./staff-tags-client";
+
+const FIRST_PAGE = { page: 1, pageSize: 20, offset: 0 };
 
 export default async function StaffPage() {
     const user = await getCurrentUser();
@@ -15,9 +17,11 @@ export default async function StaffPage() {
         redirect("/");
     }
 
-    const [works, checkouts, users, tags] = await Promise.all([
-        getAllWorks(),
-        getAllCheckouts(),
+    const [worksPage, checkoutsPage, allWorks, activeCheckedOutIds, users, tags] = await Promise.all([
+        getAllWorks(FIRST_PAGE),
+        getAllCheckouts(FIRST_PAGE),
+        getAllWorksForExport(),
+        getActiveCheckedOutWorkIds(),
         getAllUsers(),
         getAllTags(),
     ]);
@@ -26,13 +30,18 @@ export default async function StaffPage() {
         <div className="mx-auto max-w-7xl px-4 py-8 space-y-10">
             <section>
                 <h1 className="mb-6 text-2xl font-bold">Item Management</h1>
-                <StaffWorksClient initialWorks={works} />
+                <StaffWorksClient
+                    initialWorks={worksPage.rows}
+                    initialTotal={worksPage.total}
+                />
             </section>
             <section>
                 <h2 className="mb-6 text-2xl font-bold">Checkouts</h2>
                 <StaffCheckoutsClient
-                    initialCheckouts={checkouts}
-                    works={works}
+                    initialCheckouts={checkoutsPage.rows}
+                    initialTotal={checkoutsPage.total}
+                    works={allWorks}
+                    activeCheckedOutIds={activeCheckedOutIds}
                     users={users}
                 />
             </section>

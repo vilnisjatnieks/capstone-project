@@ -62,51 +62,55 @@ beforeEach(() => {
 
 // ─── getAllCheckouts ─────────────────────────────────────────────────
 
+const PAGE = { page: 1, pageSize: 20, offset: 0 };
+
 describe("getAllCheckouts", () => {
     it("throws Unauthorized when not authenticated", async () => {
         mockGetCurrentUser.mockResolvedValue(null);
-        await expect(getAllCheckouts()).rejects.toThrow("Unauthorized");
+        await expect(getAllCheckouts(PAGE)).rejects.toThrow("Unauthorized");
     });
 
     it("throws Forbidden when role is user", async () => {
         mockGetCurrentUser.mockResolvedValue(regularUser);
-        await expect(getAllCheckouts()).rejects.toThrow("Forbidden");
+        await expect(getAllCheckouts(PAGE)).rejects.toThrow("Forbidden");
     });
 
     it("allows admin users", async () => {
         mockGetCurrentUser.mockResolvedValue(adminUser);
         mockQuery.mockResolvedValue({ rows: [] });
-        await expect(getAllCheckouts()).resolves.toEqual([]);
+        await expect(getAllCheckouts(PAGE)).resolves.toEqual({ rows: [], total: 0 });
     });
 
-    it("returns all checkouts with joined data", async () => {
+    it("returns paginated checkouts with joined data and total", async () => {
         const checkouts = [
-            { id: "c1", work_title: "Book A", user_name: "Alice" },
-            { id: "c2", work_title: "Book B", user_name: "Bob" },
+            { id: "c1", work_title: "Book A", user_name: "Alice", total_count: "2" },
+            { id: "c2", work_title: "Book B", user_name: "Bob", total_count: "2" },
         ];
         mockQuery.mockResolvedValue({ rows: checkouts });
 
-        const result = await getAllCheckouts();
+        const result = await getAllCheckouts(PAGE);
 
-        expect(result).toEqual(checkouts);
+        expect(result).toEqual({
+            rows: [
+                { id: "c1", work_title: "Book A", user_name: "Alice" },
+                { id: "c2", work_title: "Book B", user_name: "Bob" },
+            ],
+            total: 2,
+        });
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("JOIN works"),
-            undefined
+            expect.stringContaining("LIMIT $1 OFFSET $2"),
+            [20, 0]
         );
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("JOIN users"),
-            undefined
-        );
-        expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("ORDER BY c.created_at DESC"),
-            undefined
+            expect.stringContaining("COUNT(*) OVER()"),
+            [20, 0]
         );
     });
 
-    it("returns an empty array when no checkouts exist", async () => {
+    it("returns empty rows and zero total when no checkouts exist", async () => {
         mockQuery.mockResolvedValue({ rows: [] });
-        const result = await getAllCheckouts();
-        expect(result).toEqual([]);
+        const result = await getAllCheckouts(PAGE);
+        expect(result).toEqual({ rows: [], total: 0 });
     });
 });
 
@@ -512,60 +516,62 @@ describe("markOverdueNotified", () => {
 
 // ─── getPopularWorks ────────────────────────────────────────────────
 
+const POP_PAGE = { page: 1, pageSize: 25, offset: 0 };
+
 describe("getPopularWorks", () => {
-    it("returns works ordered by checkout count descending", async () => {
+    it("returns paginated works ordered by checkout count descending", async () => {
         const works = [
-            { id: "w1", title: "Popular Book", checkout_count: 10 },
-            { id: "w2", title: "Less Popular", checkout_count: 3 },
+            { id: "w1", title: "Popular Book", checkout_count: 10, total_count: "2" },
+            { id: "w2", title: "Less Popular", checkout_count: 3, total_count: "2" },
         ];
         mockQuery.mockResolvedValue({ rows: works });
 
-        const result = await getPopularWorks();
+        const result = await getPopularWorks(POP_PAGE);
 
-        expect(result).toEqual(works);
-        expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("COALESCE(COUNT(c.id)"),
-            undefined
-        );
+        expect(result).toEqual({
+            rows: [
+                { id: "w1", title: "Popular Book", checkout_count: 10 },
+                { id: "w2", title: "Less Popular", checkout_count: 3 },
+            ],
+            total: 2,
+        });
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("ORDER BY checkout_count DESC"),
-            undefined
+            [25, 0]
         );
     });
 
     it("filters by tag when tagId is provided", async () => {
         const works = [
-            { id: "w1", title: "Tagged Popular", checkout_count: 7 },
+            { id: "w1", title: "Tagged Popular", checkout_count: 7, total_count: "1" },
         ];
         mockQuery.mockResolvedValue({ rows: works });
 
-        const result = await getPopularWorks("tag-uuid-1");
+        const result = await getPopularWorks(POP_PAGE, { tagId: "tag-uuid-1" });
 
-        expect(result).toEqual(works);
+        expect(result.total).toBe(1);
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("JOIN work_tags"),
-            ["tag-uuid-1"]
-        );
-        expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("wt.tag_id = $1"),
-            ["tag-uuid-1"]
+            ["tag-uuid-1", 25, 0]
         );
     });
 
-    it("returns empty array when no checkouts exist", async () => {
+    it("returns empty rows and zero total when no checkouts exist", async () => {
         mockQuery.mockResolvedValue({ rows: [] });
 
-        const result = await getPopularWorks();
+        const result = await getPopularWorks(POP_PAGE);
 
-        expect(result).toEqual([]);
+        expect(result).toEqual({ rows: [], total: 0 });
     });
 
     it("does not call requireStaffUser (public access)", async () => {
         mockGetCurrentUser.mockResolvedValue(null);
         mockQuery.mockResolvedValue({ rows: [] });
 
-        // Should NOT throw even though there's no authenticated user
-        await expect(getPopularWorks()).resolves.toEqual([]);
+        await expect(getPopularWorks(POP_PAGE)).resolves.toEqual({
+            rows: [],
+            total: 0,
+        });
     });
 });
 

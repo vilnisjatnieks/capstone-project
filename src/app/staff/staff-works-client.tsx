@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { PaginationControls } from "@/components/pagination-controls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -52,13 +53,17 @@ interface Work {
 
 interface StaffWorksClientProps {
     initialWorks: Work[];
+    initialTotal: number;
 }
 
 const MEDIA_TYPES = ["book", "ebook", "audiobook", "periodical", "dvd", "other"];
+const PAGE_SIZE = 20;
 
-export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
+export function StaffWorksClient({ initialWorks, initialTotal }: StaffWorksClientProps) {
     const router = useRouter();
     const [works, setWorks] = useState<Work[]>(initialWorks);
+    const [total, setTotal] = useState(initialTotal);
+    const [page, setPage] = useState(1);
     const [search, setSearch] = useState("");
     const [mediaFilter, setMediaFilter] = useState("all");
     const [formOpen, setFormOpen] = useState(false);
@@ -68,6 +73,23 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
     const [importing, setImporting] = useState(false);
     const [dragging, setDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const refetch = useCallback(async (targetPage: number) => {
+        const res = await fetch(`/api/staff/works?page=${targetPage}&pageSize=${PAGE_SIZE}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setWorks(data.items);
+        setTotal(data.total);
+    }, []);
+
+    const hydratedRef = useRef(true);
+    useEffect(() => {
+        if (hydratedRef.current) {
+            hydratedRef.current = false;
+            return;
+        }
+        refetch(page);
+    }, [page, refetch]);
 
     const filteredWorks = useMemo(() => {
         return works.filter((work) => {
@@ -98,15 +120,19 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
 
     function handleSaved(work: Work, isNew: boolean) {
         if (isNew) {
-            setWorks((prev) => [work, ...prev]);
+            if (page === 1) {
+                refetch(1);
+            } else {
+                setPage(1);
+            }
         } else {
             setWorks((prev) => prev.map((w) => (w.id === work.id ? work : w)));
         }
         router.refresh();
     }
 
-    function handleDeleted(id: string) {
-        setWorks((prev) => prev.filter((w) => w.id !== id));
+    function handleDeleted(_id: string) {
+        refetch(page);
         router.refresh();
     }
 
@@ -137,10 +163,10 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
                     `${imported} imported, ${skipped.length} skipped (${rowList})`
                 );
             }
-            const worksRes = await fetch("/api/staff/works");
-            if (worksRes.ok) {
-                const updatedWorks = await worksRes.json();
-                setWorks(updatedWorks);
+            if (page === 1) {
+                await refetch(1);
+            } else {
+                setPage(1);
             }
         } catch {
             toast.error("Import failed");
@@ -316,6 +342,13 @@ export function StaffWorksClient({ initialWorks }: StaffWorksClientProps) {
                     )}
                 </TableBody>
             </Table>
+
+            <PaginationControls
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={total}
+                onPageChange={setPage}
+            />
 
             <WorkFormDialog
                 open={formOpen}

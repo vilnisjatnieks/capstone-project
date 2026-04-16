@@ -2,6 +2,7 @@ import "server-only";
 
 import { query } from "@/lib/db";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
+import type { PaginationParams } from "@/lib/pagination";
 
 // ---------------------------------------------------------------------------
 // Types / DTOs
@@ -127,15 +128,28 @@ export async function getAllUsers(): Promise<UserListDTO[]> {
 // Read operations (admin)
 // ---------------------------------------------------------------------------
 
-/** List all users with full admin fields (admin only). */
-export async function getAdminAllUsers(): Promise<UserAdminDTO[]> {
+/** List all users with full admin fields (admin only), paginated. */
+export async function getAdminAllUsers(
+    params: PaginationParams
+): Promise<{ rows: UserAdminDTO[]; total: number }> {
     await requireAdminUser();
 
     const result = await query(
-        "SELECT id, email, name, role, created_at, updated_at FROM users ORDER BY created_at DESC"
+        `SELECT id, email, name, role, created_at, updated_at,
+                COUNT(*) OVER() AS total_count
+         FROM users
+         ORDER BY created_at DESC
+         LIMIT $1 OFFSET $2`,
+        [params.pageSize, params.offset]
     );
 
-    return result.rows as UserAdminDTO[];
+    const total = Number(result.rows[0]?.total_count ?? 0);
+    const rows = result.rows.map((r: Record<string, unknown>) => {
+        const { total_count: _ignored, ...rest } = r;
+        return rest;
+    }) as unknown as UserAdminDTO[];
+
+    return { rows, total };
 }
 
 // ---------------------------------------------------------------------------

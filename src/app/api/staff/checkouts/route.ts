@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAllCheckouts, createCheckout } from "@/lib/data/checkouts";
+import { parsePageParams, buildPaginatedResponse } from "@/lib/pagination";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        const checkouts = await getAllCheckouts();
-        return NextResponse.json(checkouts);
+        const { searchParams } = new URL(request.url);
+        const params = parsePageParams(searchParams, 20);
+        const { rows, total } = await getAllCheckouts(params);
+        return NextResponse.json(buildPaginatedResponse(rows, total, params));
     } catch (error) {
         const message =
             error instanceof Error ? error.message : "Internal server error";

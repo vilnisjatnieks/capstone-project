@@ -56,48 +56,72 @@ beforeEach(() => {
 
 // ─── GET /api/staff/works ────────────────────────────────────────────
 
+function makeGetRequest(qs = ""): NextRequest {
+    return new NextRequest(`http://localhost:3000/api/staff/works${qs}`, {
+        method: "GET",
+    });
+}
+
 describe("GET /api/staff/works", () => {
     it("returns 401 when not authenticated", async () => {
         mockGetCurrentUser.mockResolvedValue(null);
-        const res = await GET();
+        const res = await GET(makeGetRequest());
         expect(res.status).toBe(401);
     });
 
     it("returns 403 when user role is user", async () => {
         mockGetCurrentUser.mockResolvedValue({ ...staffUser, role: "user" });
-        const res = await GET();
+        const res = await GET(makeGetRequest());
         expect(res.status).toBe(403);
     });
 
-    it("returns all works for staff", async () => {
+    it("returns paginated works for staff", async () => {
         const works = [
-            { id: 1, title: "Work A" },
-            { id: 2, title: "Work B" },
+            { id: 1, title: "Work A", total_count: "2" },
+            { id: 2, title: "Work B", total_count: "2" },
         ];
         mockQuery.mockImplementation((text: string) => {
             if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
             return Promise.resolve({ rows: works });
         });
 
-        const res = await GET();
+        const res = await GET(makeGetRequest());
         const body = await res.json();
 
         expect(res.status).toBe(200);
-        expect(body).toEqual([
-            { id: 1, title: "Work A", authors: [] },
-            { id: 2, title: "Work B", authors: [] },
-        ]);
+        expect(body).toEqual({
+            items: [
+                { id: 1, title: "Work A", authors: [] },
+                { id: 2, title: "Work B", authors: [] },
+            ],
+            total: 2,
+            page: 1,
+            pageSize: 20,
+        });
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("SELECT"),
-            undefined
+            expect.stringContaining("LIMIT $1 OFFSET $2"),
+            [20, 0]
         );
     });
 
-    it("returns all works for admin", async () => {
+    it("applies page and pageSize query params", async () => {
+        mockQuery.mockResolvedValue({ rows: [] });
+        const res = await GET(makeGetRequest("?page=3&pageSize=10"));
+        const body = await res.json();
+
+        expect(res.status).toBe(200);
+        expect(body).toEqual({ items: [], total: 0, page: 3, pageSize: 10 });
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("LIMIT"),
+            [10, 20]
+        );
+    });
+
+    it("returns works for admin", async () => {
         mockGetCurrentUser.mockResolvedValue(adminUser);
         mockQuery.mockResolvedValue({ rows: [] });
 
-        const res = await GET();
+        const res = await GET(makeGetRequest());
         expect(res.status).toBe(200);
     });
 });
@@ -314,7 +338,7 @@ describe("Forbidden access tests", () => {
     });
 
     it("GET /api/staff/works returns 403 for non-staff", async () => {
-        const res = await GET();
+        const res = await GET(makeGetRequest());
         expect(res.status).toBe(403);
     });
 
@@ -350,7 +374,7 @@ describe("Forbidden access tests", () => {
 describe("500 error handling", () => {
     it("GET /api/staff/works returns 500 on unexpected error", async () => {
         mockGetCurrentUser.mockRejectedValue("unexpected");
-        const res = await GET();
+        const res = await GET(makeGetRequest());
         expect(res.status).toBe(500);
     });
 

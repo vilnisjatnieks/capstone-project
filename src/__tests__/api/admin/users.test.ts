@@ -47,34 +47,61 @@ beforeEach(() => {
   mockHashPassword.mockResolvedValue("hashed-password");
 });
 
+function makeGetRequest(qs = ""): NextRequest {
+  return new NextRequest(`http://localhost:3000/api/admin/users${qs}`, {
+    method: "GET",
+  });
+}
+
 describe("GET /api/admin/users", () => {
   it("returns 401 when not authenticated", async () => {
     mockGetCurrentUser.mockResolvedValue(null);
-    const res = await GET();
+    const res = await GET(makeGetRequest());
     expect(res.status).toBe(401);
   });
 
   it("returns 403 when not admin", async () => {
     mockGetCurrentUser.mockResolvedValue({ ...adminUser, role: "user" });
-    const res = await GET();
+    const res = await GET(makeGetRequest());
     expect(res.status).toBe(403);
   });
 
-  it("returns all users", async () => {
+  it("returns paginated users", async () => {
     const users = [
-      { id: "1", email: "a@b.com", name: "A", role: "admin" },
-      { id: "2", email: "c@d.com", name: "C", role: "user" },
+      { id: "1", email: "a@b.com", name: "A", role: "admin", total_count: "2" },
+      { id: "2", email: "c@d.com", name: "C", role: "user", total_count: "2" },
     ];
     mockQuery.mockResolvedValue({ rows: users });
 
-    const res = await GET();
+    const res = await GET(makeGetRequest());
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toEqual(users);
+    expect(body).toEqual({
+      items: [
+        { id: "1", email: "a@b.com", name: "A", role: "admin" },
+        { id: "2", email: "c@d.com", name: "C", role: "user" },
+      ],
+      total: 2,
+      page: 1,
+      pageSize: 20,
+    });
     expect(mockQuery).toHaveBeenCalledWith(
-      expect.stringContaining("SELECT"),
-      undefined
+      expect.stringContaining("LIMIT $1 OFFSET $2"),
+      [20, 0]
+    );
+  });
+
+  it("applies page and pageSize query params", async () => {
+    mockQuery.mockResolvedValue({ rows: [] });
+    const res = await GET(makeGetRequest("?page=2&pageSize=10"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ items: [], total: 0, page: 2, pageSize: 10 });
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining("LIMIT"),
+      [10, 10]
     );
   });
 });
@@ -309,7 +336,7 @@ describe("Forbidden access tests (admin)", () => {
   });
 
   it("GET /api/admin/users returns 403 for non-admin", async () => {
-    const res = await GET();
+    const res = await GET(makeGetRequest());
     expect(res.status).toBe(403);
   });
 
@@ -334,7 +361,7 @@ describe("Forbidden access tests (admin)", () => {
 describe("500 error handling (admin)", () => {
   it("GET /api/admin/users returns 500 on unexpected error", async () => {
     mockGetCurrentUser.mockRejectedValue("unexpected");
-    const res = await GET();
+    const res = await GET(makeGetRequest());
     expect(res.status).toBe(500);
   });
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { requireStaff } from "@/lib/staff";
-import { getAllWorks } from "@/lib/data/works";
+import { getAllWorksForExport } from "@/lib/data/works";
 
 const HEADERS = [
     "Title",
@@ -24,7 +24,7 @@ export async function GET() {
     if (!check.authorized) return check.response;
 
     try {
-        const works = await getAllWorks();
+        const works = await getAllWorksForExport();
 
         const rows = works.map((w) => ({
             "Title": w.title,
