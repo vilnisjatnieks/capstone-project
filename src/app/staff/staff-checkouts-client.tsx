@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { PaginationControls } from "@/components/pagination-controls";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,9 +53,12 @@ interface User {
 
 interface StaffCheckoutsClientProps {
   initialCheckouts: Checkout[];
+  initialTotal: number;
   works: Work[];
   users: User[];
 }
+
+const PAGE_SIZE = 20;
 
 function isOverdue(checkout: Checkout) {
   return !checkout.returned_at && new Date(checkout.due_date) < new Date();
@@ -62,11 +66,27 @@ function isOverdue(checkout: Checkout) {
 
 export function StaffCheckoutsClient({
   initialCheckouts,
+  initialTotal,
   works,
   users,
 }: StaffCheckoutsClientProps) {
   const router = useRouter();
-  const checkouts = initialCheckouts;
+  const [checkouts, setCheckouts] = useState<Checkout[]>(initialCheckouts);
+  const [total, setTotal] = useState(initialTotal);
+  const [page, setPage] = useState(1);
+
+  const refetch = useCallback(async (targetPage: number) => {
+    const res = await fetch(`/api/staff/checkouts?page=${targetPage}&pageSize=${PAGE_SIZE}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    setCheckouts(data.items);
+    setTotal(data.total);
+  }, []);
+
+  useEffect(() => {
+    if (page === 1) return;
+    refetch(page);
+  }, [page, refetch]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
   const [formOpen, setFormOpen] = useState(false);
@@ -83,6 +103,7 @@ export function StaffCheckoutsClient({
       const res = await fetch(`/api/staff/checkouts/${id}/extend/approve`, { method: 'POST' });
       if (res.ok) {
         toast.success("Extension approved");
+        await refetch(page);
         router.refresh();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -103,6 +124,7 @@ export function StaffCheckoutsClient({
       throw new Error(data.error || "Failed to reject extension");
     }
     toast.success("Extension rejected");
+    await refetch(page);
     router.refresh();
   };
 
@@ -279,19 +301,36 @@ export function StaffCheckoutsClient({
         </TableBody>
       </Table>
 
+      <PaginationControls
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onPageChange={setPage}
+      />
+
       <CheckoutFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
         availableWorks={availableWorks}
         users={users}
-        onCreated={() => router.refresh()}
+        onCreated={async () => {
+          if (page === 1) {
+            await refetch(1);
+          } else {
+            setPage(1);
+          }
+          router.refresh();
+        }}
       />
 
       <ReturnCheckoutDialog
         open={returnOpen}
         onOpenChange={setReturnOpen}
         checkout={returningCheckout}
-        onReturned={() => router.refresh()}
+        onReturned={async () => {
+          await refetch(page);
+          router.refresh();
+        }}
       />
 
       <ConfirmDialog

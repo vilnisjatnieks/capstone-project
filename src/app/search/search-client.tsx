@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PaginationControls } from "@/components/pagination-controls";
 import {
     Select,
     SelectContent,
@@ -97,26 +98,7 @@ function extractYear(date: string): string {
     return match ? match[1] : date;
 }
 
-function compareValues(
-    a: string | number | null | undefined,
-    b: string | number | null | undefined,
-    direction: SortDirection
-): number {
-    // Nulls always go to the end
-    if (a == null && b == null) return 0;
-    if (a == null) return 1;
-    if (b == null) return -1;
-
-    let result: number;
-    if (typeof a === "number" && typeof b === "number") {
-        result = a - b;
-    } else {
-        result = String(a).localeCompare(String(b), undefined, {
-            sensitivity: "base",
-        });
-    }
-    return direction === "asc" ? result : -result;
-}
+const PAGE_SIZE = 25;
 
 interface Tag {
     id: string;
@@ -129,6 +111,9 @@ export function SearchClient({ initialQuery = "" }: { initialQuery?: string }) {
     const [mediaFilter, setMediaFilter] = useState("all");
     const [tagFilter, setTagFilter] = useState("all");
     const [results, setResults] = useState<Work[]>([]);
+    const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
+    const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     const [availableTags, setAvailableTags] = useState<Tag[]>([]);
@@ -149,40 +134,43 @@ export function SearchClient({ initialQuery = "" }: { initialQuery?: string }) {
             .catch(() => {});
     }, []);
 
-    const fetchResults = useCallback(async (q: string, media: string, tag: string, sort: SortField) => {
+    const fetchResults = useCallback(async (
+        q: string,
+        media: string,
+        tag: string,
+        lang: string,
+        sort: SortField,
+        dir: SortDirection,
+        targetPage: number
+    ) => {
         setLoading(true);
         try {
+            const params = new URLSearchParams();
+            params.set("page", String(targetPage));
+            params.set("pageSize", String(PAGE_SIZE));
+            if (q.trim()) params.set("q", q.trim());
+            if (media && media !== "all") params.set("media_type", media);
+            if (tag && tag !== "all") params.set("tag", tag);
+            if (lang && lang !== "all") params.set("lang", lang);
             if (sort === "popularity") {
-                const params = new URLSearchParams();
-                if (tag && tag !== "all") params.set("tag", tag);
-
                 const res = await fetch(`/api/search/popular?${params.toString()}`);
                 if (res.ok) {
-                    let data = await res.json();
-                    // Apply client-side text and media filters
-                    if (q.trim()) {
-                        const lowerQ = q.trim().toLowerCase();
-                        data = data.filter((w: Work) =>
-                            w.title.toLowerCase().includes(lowerQ) ||
-                            (w.publisher && w.publisher.toLowerCase().includes(lowerQ)) ||
-                            (w.authors ?? []).some((a) => a.name.toLowerCase().includes(lowerQ))
-                        );
-                    }
-                    if (media && media !== "all") {
-                        data = data.filter((w: Work) => w.media_type === media);
-                    }
-                    setResults(data);
+                    const data = await res.json();
+                    setResults(data.items);
+                    setTotal(data.total);
+                    // Popular endpoint has no languages — keep previous list
                 }
             } else {
-                const params = new URLSearchParams();
-                if (q.trim()) params.set("q", q.trim());
-                if (media && media !== "all") params.set("media_type", media);
-                if (tag && tag !== "all") params.set("tag", tag);
-
+                params.set("sort", sort);
+                params.set("dir", dir);
                 const res = await fetch(`/api/search/works?${params.toString()}`);
                 if (res.ok) {
                     const data = await res.json();
-                    setResults(data);
+                    setResults(data.items);
+                    setTotal(data.total);
+                    if (Array.isArray(data.languages)) {
+                        setAvailableLanguages(data.languages);
+                    }
                 }
             }
         } finally {
@@ -191,22 +179,18 @@ export function SearchClient({ initialQuery = "" }: { initialQuery?: string }) {
         }
     }, []);
 
-    // Debounced search
+    // Reset to page 1 whenever filters/sort change
+    useEffect(() => {
+        setPage(1);
+    }, [query, mediaFilter, tagFilter, languageFilter, sortField, sortDirection]);
+
+    // Debounced fetch
     useEffect(() => {
         const timer = setTimeout(() => {
-            fetchResults(query, mediaFilter, tagFilter, sortField);
+            fetchResults(query, mediaFilter, tagFilter, languageFilter, sortField, sortDirection, page);
         }, 300);
         return () => clearTimeout(timer);
-    }, [query, mediaFilter, tagFilter, sortField, fetchResults]);
-
-    // Distinct languages for filter dropdown
-    const availableLanguages = useMemo(() => {
-        const langs = new Set<string>();
-        results.forEach((w) => {
-            if (w.language) langs.add(w.language);
-        });
-        return Array.from(langs).sort();
-    }, [results]);
+    }, [query, mediaFilter, tagFilter, languageFilter, sortField, sortDirection, page, fetchResults]);
 
     // Build return URL encoding current filter state (for "Back to Search" on work pages)
     const searchReturnUrl = useMemo(() => {
@@ -222,25 +206,7 @@ export function SearchClient({ initialQuery = "" }: { initialQuery?: string }) {
         return `/search${qs ? "?" + qs : ""}`;
     }, [query, mediaFilter, tagFilter, languageFilter, sortField, sortDirection, viewMode]);
 
-    // Client-side filtering + sorting
-    const processedResults = useMemo(() => {
-        let filtered = results;
-
-        if (languageFilter && languageFilter !== "all") {
-            filtered = filtered.filter((w) => w.language === languageFilter);
-        }
-
-        // When sorting by popularity, data is already sorted by checkout_count DESC from the API
-        if (sortField === "popularity") {
-            return filtered;
-        }
-
-        const sorted = [...filtered].sort((a, b) =>
-            compareValues(a[sortField], b[sortField], sortDirection)
-        );
-
-        return sorted;
-    }, [results, languageFilter, sortField, sortDirection]);
+    const processedResults = results;
 
     function handleColumnSort(field: SortField) {
         if (sortField === field) {
@@ -426,10 +392,7 @@ export function SearchClient({ initialQuery = "" }: { initialQuery?: string }) {
             {!loading && processedResults.length > 0 && (
                 <>
                     <p className="text-sm text-muted-foreground">
-                        {processedResults.length} result
-                        {processedResults.length !== 1 ? "s" : ""} found
-                        {languageFilter !== "all" &&
-                            ` (filtered from ${results.length})`}
+                        {total} result{total !== 1 ? "s" : ""} found
                     </p>
 
                     {/* ====== GRID VIEW ====== */}
@@ -691,6 +654,13 @@ export function SearchClient({ initialQuery = "" }: { initialQuery?: string }) {
                             </TableBody>
                         </Table>
                     )}
+
+                    <PaginationControls
+                        page={page}
+                        pageSize={PAGE_SIZE}
+                        total={total}
+                        onPageChange={setPage}
+                    />
                 </>
             )}
         </div>

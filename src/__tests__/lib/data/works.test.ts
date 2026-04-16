@@ -54,62 +54,67 @@ beforeEach(() => {
 
 // ─── Authorization (shared across all staff-only functions) ─────────
 
+const PAGE = { page: 1, pageSize: 20, offset: 0 };
+
 describe("requireStaffUser (via getAllWorks)", () => {
     it("throws Unauthorized when not authenticated", async () => {
         mockGetCurrentUser.mockResolvedValue(null);
-        await expect(getAllWorks()).rejects.toThrow("Unauthorized");
+        await expect(getAllWorks(PAGE)).rejects.toThrow("Unauthorized");
     });
 
     it("throws Forbidden when role is user", async () => {
         mockGetCurrentUser.mockResolvedValue(regularUser);
-        await expect(getAllWorks()).rejects.toThrow("Forbidden");
+        await expect(getAllWorks(PAGE)).rejects.toThrow("Forbidden");
     });
 
     it("allows staff users", async () => {
         mockQuery.mockResolvedValue({ rows: [] });
-        await expect(getAllWorks()).resolves.toEqual([]);
+        await expect(getAllWorks(PAGE)).resolves.toEqual({ rows: [], total: 0 });
     });
 
     it("allows admin users", async () => {
         mockGetCurrentUser.mockResolvedValue(adminUser);
         mockQuery.mockResolvedValue({ rows: [] });
-        await expect(getAllWorks()).resolves.toEqual([]);
+        await expect(getAllWorks(PAGE)).resolves.toEqual({ rows: [], total: 0 });
     });
 });
 
 // ─── getAllWorks ─────────────────────────────────────────────────────
 
 describe("getAllWorks", () => {
-    it("returns all works from the database", async () => {
+    it("returns paginated works with total", async () => {
         const works = [
-            { id: "w1", title: "Book A" },
-            { id: "w2", title: "Book B" },
+            { id: "w1", title: "Book A", total_count: "2" },
+            { id: "w2", title: "Book B", total_count: "2" },
         ];
         mockQuery.mockImplementation((text: string) => {
             if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
             return Promise.resolve({ rows: works });
         });
 
-        const result = await getAllWorks();
+        const result = await getAllWorks(PAGE);
 
-        expect(result).toEqual([
-            { id: "w1", title: "Book A", authors: [] },
-            { id: "w2", title: "Book B", authors: [] },
-        ]);
+        expect(result).toEqual({
+            rows: [
+                { id: "w1", title: "Book A", authors: [] },
+                { id: "w2", title: "Book B", authors: [] },
+            ],
+            total: 2,
+        });
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("SELECT"),
-            undefined
+            expect.stringContaining("LIMIT $1 OFFSET $2"),
+            [20, 0]
         );
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("ORDER BY created_at DESC"),
-            undefined
+            expect.stringContaining("COUNT(*) OVER()"),
+            [20, 0]
         );
     });
 
-    it("returns an empty array when no works exist", async () => {
+    it("returns empty rows and zero total when no works exist", async () => {
         mockQuery.mockResolvedValue({ rows: [] });
-        const result = await getAllWorks();
-        expect(result).toEqual([]);
+        const result = await getAllWorks(PAGE);
+        expect(result).toEqual({ rows: [], total: 0 });
     });
 });
 
@@ -184,92 +189,103 @@ describe("getPublicWorkById", () => {
 
 // ─── searchWorks ────────────────────────────────────────────────────
 
+const SEARCH_PAGE = { page: 1, pageSize: 25, offset: 0 };
+
 describe("searchWorks", () => {
     it("searches without any filters", async () => {
-        const works = [{ id: "w1", title: "Book A" }];
+        const works = [{ id: "w1", title: "Book A", total_count: "1" }];
         mockQuery.mockImplementation((text: string) => {
             if (text.includes("FROM work_authors")) return Promise.resolve({ rows: [] });
             return Promise.resolve({ rows: works });
         });
 
-        const result = await searchWorks({});
+        const result = await searchWorks({}, SEARCH_PAGE);
 
-        expect(result).toEqual([{ id: "w1", title: "Book A", authors: [] }]);
+        expect(result.rows).toEqual([{ id: "w1", title: "Book A", authors: [] }]);
+        expect(result.total).toBe(1);
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("ORDER BY w.title ASC"),
-            undefined
-        );
-        // The main search query (params === undefined) should NOT have a WHERE clause
-        expect(mockQuery).toHaveBeenCalledWith(
-            expect.not.stringContaining("WHERE"),
-            undefined
+            [25, 0]
         );
     });
 
     it("searches with a text query", async () => {
         mockQuery.mockResolvedValue({ rows: [] });
 
-        await searchWorks({ q: "test" });
+        await searchWorks({ q: "test" }, SEARCH_PAGE);
 
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("ILIKE"),
-            ["%test%"]
+            ["%test%", 25, 0]
         );
     });
 
     it("searches with a media type filter", async () => {
         mockQuery.mockResolvedValue({ rows: [] });
 
-        await searchWorks({ mediaType: "book" });
+        await searchWorks({ mediaType: "book" }, SEARCH_PAGE);
 
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("w.media_type = $1"),
-            ["book"]
+            ["book", 25, 0]
         );
     });
 
     it("searches with both query and media type", async () => {
         mockQuery.mockResolvedValue({ rows: [] });
 
-        await searchWorks({ q: "test", mediaType: "ebook" });
+        await searchWorks({ q: "test", mediaType: "ebook" }, SEARCH_PAGE);
 
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("ILIKE"),
-            ["%test%", "ebook"]
-        );
-        expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("w.media_type = $2"),
-            ["%test%", "ebook"]
+            ["%test%", "ebook", 25, 0]
         );
     });
 
     it("searches with a tag filter", async () => {
         mockQuery.mockResolvedValue({ rows: [] });
 
-        await searchWorks({ tagId: "tag-1" });
+        await searchWorks({ tagId: "tag-1" }, SEARCH_PAGE);
 
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("JOIN work_tags"),
-            ["tag-1"]
-        );
-        expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("wt.tag_id = $1"),
-            ["tag-1"]
+            ["tag-1", 25, 0]
         );
     });
 
     it("searches with query, media type, and tag combined", async () => {
         mockQuery.mockResolvedValue({ rows: [] });
 
-        await searchWorks({ q: "test", mediaType: "book", tagId: "tag-1" });
+        await searchWorks(
+            { q: "test", mediaType: "book", tagId: "tag-1" },
+            SEARCH_PAGE
+        );
 
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("JOIN work_tags"),
-            ["%test%", "book", "tag-1"]
-        );
-        expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("wt.tag_id = $3"),
-            ["%test%", "book", "tag-1"]
+            ["%test%", "book", "tag-1", 25, 0]
+        );
+    });
+
+    it("applies language filter", async () => {
+        mockQuery.mockResolvedValue({ rows: [] });
+
+        await searchWorks({ language: "French" }, SEARCH_PAGE);
+
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("w.language = $1"),
+            ["French", 25, 0]
+        );
+    });
+
+    it("applies sort direction to ORDER BY", async () => {
+        mockQuery.mockResolvedValue({ rows: [] });
+
+        await searchWorks({ sort: "date_published", dir: "desc" }, SEARCH_PAGE);
+
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("ORDER BY w.date_published DESC"),
+            [25, 0]
         );
     });
 
@@ -277,8 +293,11 @@ describe("searchWorks", () => {
         mockGetCurrentUser.mockResolvedValue(null);
         mockQuery.mockResolvedValue({ rows: [] });
 
-        // Should NOT throw
-        await expect(searchWorks({})).resolves.toEqual([]);
+        await expect(searchWorks({}, SEARCH_PAGE)).resolves.toEqual({
+            rows: [],
+            total: 0,
+            languages: [],
+        });
     });
 });
 

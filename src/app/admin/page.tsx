@@ -10,13 +10,14 @@ export default async function AdminPage() {
     redirect("/");
   }
 
-  const users = await getAdminAllUsers();
+  const { rows, total } = await getAdminAllUsers({ page: 1, pageSize: 20, offset: 0 });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold">User Management</h1>
       <AdminUsersClient
-        initialUsers={users}
+        initialUsers={rows}
+        initialTotal={total}
         currentUserId={user.id}
       />
     </div>

@@ -2,6 +2,7 @@ import "server-only";
 
 import { query } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import type { PaginationParams } from "@/lib/pagination";
 
 // ---------------------------------------------------------------------------
 // Types / DTOs
@@ -149,8 +150,36 @@ async function replaceContributors(
 // Read operations
 // ---------------------------------------------------------------------------
 
-/** List all works (staff only). Returns DTOs without cover data. */
-export async function getAllWorks(): Promise<WorkDTO[]> {
+/** List all works (staff only), paginated. Returns DTOs without cover data. */
+export async function getAllWorks(
+    params: PaginationParams
+): Promise<{ rows: WorkDTO[]; total: number }> {
+    await requireStaffUser();
+
+    const result = await query(
+        `SELECT id, created_at, title, date_published, publisher,
+                lccn, isbn_10, isbn_13, media_type, number_of_pages, language,
+                location, call_number, updated_at,
+                COUNT(*) OVER() AS total_count
+         FROM works ORDER BY created_at DESC
+         LIMIT $1 OFFSET $2`,
+        [params.pageSize, params.offset]
+    );
+
+    const total = Number(result.rows[0]?.total_count ?? 0);
+    const rows = result.rows.map((r: Record<string, unknown>) => {
+        const { total_count: _ignored, ...rest } = r;
+        return rest;
+    }) as unknown as WorkDTO[];
+
+    return {
+        rows: (await attachAuthorsToWorks(rows)) as WorkDTO[],
+        total,
+    };
+}
+
+/** List all works without pagination (staff only). Used for bulk export. */
+export async function getAllWorksForExport(): Promise<WorkDTO[]> {
     await requireStaffUser();
 
     const result = await query(
@@ -197,17 +226,44 @@ export async function getPublicWorkById(id: string): Promise<WorkWithCoverDTO | 
     return withAuthors as WorkWithCoverDTO;
 }
 
-/** Search works (public). Returns DTOs without cover data. */
-export async function searchWorks(params: {
+export type SearchSortField =
+    | "title"
+    | "call_number"
+    | "date_published"
+    | "media_type"
+    | "number_of_pages";
+
+const SEARCH_SORT_COLUMNS: Record<SearchSortField, string> = {
+    title: "w.title",
+    call_number: "w.call_number",
+    date_published: "w.date_published",
+    media_type: "w.media_type",
+    number_of_pages: "w.number_of_pages",
+};
+
+export interface SearchWorksFilters {
     q?: string;
     mediaType?: string;
     tagId?: string;
-}): Promise<WorkDTO[]> {
+    language?: string;
+    sort?: SearchSortField;
+    dir?: "asc" | "desc";
+}
+
+/** Search works (public), paginated with optional sort + language filter. */
+export async function searchWorks(
+    filters: SearchWorksFilters,
+    pagination: PaginationParams
+): Promise<{
+    rows: (WorkDTO & { has_cover: boolean })[];
+    total: number;
+    languages: string[];
+}> {
     const conditions: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
 
-    if (params.q) {
+    if (filters.q) {
         conditions.push(
             `(w.title ILIKE $${paramIndex}
               OR w.publisher ILIKE $${paramIndex}
@@ -220,41 +276,80 @@ export async function searchWorks(params: {
                 WHERE wa.work_id = w.id AND a.name ILIKE $${paramIndex}
               ))`
         );
-        values.push(`%${params.q}%`);
+        values.push(`%${filters.q}%`);
         paramIndex++;
     }
 
-    if (params.mediaType) {
+    if (filters.mediaType) {
         conditions.push(`w.media_type = $${paramIndex}`);
-        values.push(params.mediaType);
+        values.push(filters.mediaType);
         paramIndex++;
     }
 
     let joinClause = "";
-    if (params.tagId) {
+    if (filters.tagId) {
         joinClause = `JOIN work_tags wt ON wt.work_id = w.id`;
         conditions.push(`wt.tag_id = $${paramIndex}`);
-        values.push(params.tagId);
+        values.push(filters.tagId);
+        paramIndex++;
+    }
+
+    // language filter applies to paginated query only (not to distinct-languages query)
+    const preLangConditions = [...conditions];
+    const preLangValues = [...values];
+
+    if (filters.language) {
+        conditions.push(`w.language = $${paramIndex}`);
+        values.push(filters.language);
         paramIndex++;
     }
 
     const whereClause =
         conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
+    const sortCol = SEARCH_SORT_COLUMNS[filters.sort ?? "title"] ?? "w.title";
+    const sortDir = filters.dir === "desc" ? "DESC" : "ASC";
+    const orderBy = `ORDER BY ${sortCol} ${sortDir} NULLS LAST, w.id ASC`;
+
+    const paginatedValues = [...values, pagination.pageSize, pagination.offset];
+
     const result = await query(
         `SELECT w.id, w.title, w.date_published, w.publisher,
                 w.lccn, w.isbn_10, w.isbn_13, w.media_type, w.number_of_pages,
                 w.language, w.location, w.call_number,
                 (w.cover IS NOT NULL) as has_cover,
-                updated_at
+                updated_at,
+                COUNT(*) OVER() AS total_count
          FROM works w ${joinClause} ${whereClause}
-         ORDER BY w.title ASC`,
-        values.length > 0 ? values : undefined
+         ${orderBy}
+         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+        paginatedValues
     );
 
-    return (await attachAuthorsToWorks(
-        result.rows as (WorkDTO & { has_cover: boolean })[]
-    )) as (WorkDTO & { has_cover: boolean })[];
+    const total = Number(result.rows[0]?.total_count ?? 0);
+    const rawRows = result.rows.map((r: Record<string, unknown>) => {
+        const { total_count: _ignored, ...rest } = r;
+        return rest;
+    }) as unknown as (WorkDTO & { has_cover: boolean })[];
+
+    const rows = (await attachAuthorsToWorks(rawRows)) as (WorkDTO & {
+        has_cover: boolean;
+    })[];
+
+    // Distinct languages for the same filter set (ignoring language filter itself)
+    const preLangWhere =
+        preLangConditions.length > 0
+            ? `WHERE ${preLangConditions.join(" AND ")} AND w.language IS NOT NULL`
+            : `WHERE w.language IS NOT NULL`;
+    const langResult = await query(
+        `SELECT DISTINCT w.language
+         FROM works w ${joinClause} ${preLangWhere}
+         ORDER BY w.language ASC`,
+        preLangValues.length > 0 ? preLangValues : undefined
+    );
+    const languages = langResult.rows.map((r: { language: string }) => r.language);
+
+    return { rows, total, languages };
 }
 
 // ---------------------------------------------------------------------------

@@ -164,34 +164,39 @@ describe("getAllUsers", () => {
 
 // ─── getAdminAllUsers (admin) ───────────────────────────────────────
 
+const ADMIN_PAGE = { page: 1, pageSize: 20, offset: 0 };
+
 describe("getAdminAllUsers", () => {
     it("throws Unauthorized when not authenticated", async () => {
         mockGetCurrentUser.mockResolvedValue(null);
-        await expect(getAdminAllUsers()).rejects.toThrow("Unauthorized");
+        await expect(getAdminAllUsers(ADMIN_PAGE)).rejects.toThrow("Unauthorized");
     });
 
     it("throws Forbidden when role is staff", async () => {
         mockGetCurrentUser.mockResolvedValue(staffUser);
-        await expect(getAdminAllUsers()).rejects.toThrow("Forbidden");
+        await expect(getAdminAllUsers(ADMIN_PAGE)).rejects.toThrow("Forbidden");
     });
 
     it("throws Forbidden when role is user", async () => {
         mockGetCurrentUser.mockResolvedValue(regularUser);
-        await expect(getAdminAllUsers()).rejects.toThrow("Forbidden");
+        await expect(getAdminAllUsers(ADMIN_PAGE)).rejects.toThrow("Forbidden");
     });
 
-    it("returns all users with full fields for admin", async () => {
+    it("returns paginated users with total for admin", async () => {
         const users = [
-            { id: "u1", email: "a@b.com", name: "A", role: "admin" },
+            { id: "u1", email: "a@b.com", name: "A", role: "admin", total_count: "1" },
         ];
         mockQuery.mockResolvedValue({ rows: users });
 
-        const result = await getAdminAllUsers();
+        const result = await getAdminAllUsers(ADMIN_PAGE);
 
-        expect(result).toEqual(users);
+        expect(result).toEqual({
+            rows: [{ id: "u1", email: "a@b.com", name: "A", role: "admin" }],
+            total: 1,
+        });
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("SELECT id, email, name, role"),
-            undefined
+            expect.stringContaining("LIMIT $1 OFFSET $2"),
+            [20, 0]
         );
     });
 });

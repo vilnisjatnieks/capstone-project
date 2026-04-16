@@ -22,18 +22,22 @@ beforeEach(() => {
     jest.clearAllMocks();
 });
 
-// Helper: first call returns popular works, second returns tags
 function mockPopularWithTags(
     works: Record<string, unknown>[],
     tagRows: Record<string, unknown>[] = []
 ) {
-    mockQuery
-        .mockResolvedValueOnce({ rows: works })   // getPopularWorks
-        .mockResolvedValueOnce({ rows: tagRows }); // getTagsForWorks
+    const worksWithCount = works.map((w) => ({
+        ...w,
+        total_count: String(works.length),
+    }));
+    mockQuery.mockResolvedValueOnce({ rows: worksWithCount });
+    if (works.length > 0) {
+        mockQuery.mockResolvedValueOnce({ rows: tagRows });
+    }
 }
 
 describe("GET /api/search/popular", () => {
-    it("returns popular works with checkout counts and tags", async () => {
+    it("returns paginated popular works with default pageSize 25", async () => {
         const works = [
             { id: "1", title: "Popular Book", checkout_count: 10 },
             { id: "2", title: "Less Popular", checkout_count: 3 },
@@ -44,13 +48,18 @@ describe("GET /api/search/popular", () => {
         const body = await res.json();
 
         expect(res.status).toBe(200);
-        expect(body).toEqual([
-            { id: "1", title: "Popular Book", checkout_count: 10, tags: [] },
-            { id: "2", title: "Less Popular", checkout_count: 3, tags: [] },
-        ]);
+        expect(body).toEqual({
+            items: [
+                { id: "1", title: "Popular Book", checkout_count: 10, tags: [] },
+                { id: "2", title: "Less Popular", checkout_count: 3, tags: [] },
+            ],
+            total: 2,
+            page: 1,
+            pageSize: 25,
+        });
         expect(mockQuery).toHaveBeenCalledWith(
-            expect.stringContaining("COALESCE(COUNT(c.id)"),
-            undefined
+            expect.stringContaining("LIMIT $1 OFFSET $2"),
+            [25, 0]
         );
     });
 
@@ -65,33 +74,45 @@ describe("GET /api/search/popular", () => {
         const body = await res.json();
 
         expect(res.status).toBe(200);
-        expect(body[0].tags).toEqual([
+        expect(body.items[0].tags).toEqual([
             { id: "t1", name: "Fiction", color: "#ff0000", created_at: "x", updated_at: "x" },
         ]);
     });
 
-    it("passes tag filter to getPopularWorks when tag param is set", async () => {
+    it("passes tag filter with pagination params", async () => {
         mockPopularWithTags([{ id: "1", title: "Tagged Popular", checkout_count: 7 }]);
 
         const res = await GET(makeRequest({ tag: "tag-uuid-1" }));
         const body = await res.json();
 
         expect(res.status).toBe(200);
-        expect(body).toHaveLength(1);
+        expect(body.items).toHaveLength(1);
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("JOIN work_tags"),
-            ["tag-uuid-1"]
+            ["tag-uuid-1", 25, 0]
         );
     });
 
-    it("returns empty array when no works are popular", async () => {
+    it("applies page and pageSize params", async () => {
+        mockPopularWithTags([]);
+
+        await GET(makeRequest({ page: "2", pageSize: "10" }));
+
+        expect(mockQuery).toHaveBeenCalledWith(
+            expect.stringContaining("LIMIT $1 OFFSET $2"),
+            [10, 10]
+        );
+    });
+
+    it("returns empty items when no works are popular", async () => {
         mockPopularWithTags([]);
 
         const res = await GET(makeRequest());
         const body = await res.json();
 
         expect(res.status).toBe(200);
-        expect(body).toEqual([]);
+        expect(body.items).toEqual([]);
+        expect(body.total).toBe(0);
     });
 
     it("trims whitespace from tag param", async () => {
@@ -101,7 +122,7 @@ describe("GET /api/search/popular", () => {
 
         expect(mockQuery).toHaveBeenCalledWith(
             expect.stringContaining("JOIN work_tags"),
-            ["tag-uuid-1"]
+            ["tag-uuid-1", 25, 0]
         );
     });
 
@@ -112,7 +133,7 @@ describe("GET /api/search/popular", () => {
 
         expect(mockQuery).toHaveBeenCalledWith(
             expect.not.stringContaining("JOIN work_tags"),
-            undefined
+            [25, 0]
         );
     });
 });

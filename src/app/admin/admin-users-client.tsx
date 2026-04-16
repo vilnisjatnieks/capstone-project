@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { PaginationControls } from "@/components/pagination-controls";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,8 +44,11 @@ interface User {
 
 interface AdminUsersClientProps {
   initialUsers: User[];
+  initialTotal: number;
   currentUserId: string;
 }
+
+const PAGE_SIZE = 20;
 
 const roleBadgeVariant: Record<string, "default" | "secondary" | "outline"> = {
   admin: "default",
@@ -54,10 +58,13 @@ const roleBadgeVariant: Record<string, "default" | "secondary" | "outline"> = {
 
 export function AdminUsersClient({
   initialUsers,
+  initialTotal,
   currentUserId,
 }: AdminUsersClientProps) {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>(initialUsers);
+  const [total, setTotal] = useState(initialTotal);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [formOpen, setFormOpen] = useState(false);
@@ -73,6 +80,19 @@ export function AdminUsersClient({
     password: "",
     role: "user",
   });
+
+  const refetch = useCallback(async (targetPage: number) => {
+    const res = await fetch(`/api/admin/users?page=${targetPage}&pageSize=${PAGE_SIZE}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    setUsers(data.items);
+    setTotal(data.total);
+  }, []);
+
+  useEffect(() => {
+    if (page === 1) return; // initial data already hydrated
+    refetch(page);
+  }, [page, refetch]);
 
   const filteredUsers = useMemo(() => {
     return users.filter((user) => {
@@ -159,8 +179,12 @@ export function AdminUsersClient({
         }
 
         const created = await res.json();
-        setUsers((prev) => [created, ...prev]);
         toast.success(`User "${created.name}" created`);
+        if (page === 1) {
+          await refetch(1);
+        } else {
+          setPage(1);
+        }
       }
 
       setFormOpen(false);
@@ -186,9 +210,9 @@ export function AdminUsersClient({
       }
 
       const deletedName = deletingUser.name;
-      setUsers((prev) => prev.filter((u) => u.id !== deletingUser.id));
       setDeleteOpen(false);
       toast.success(`User "${deletedName}" deleted`);
+      await refetch(page);
       router.refresh();
     } finally {
       setSubmitting(false);
@@ -275,6 +299,13 @@ export function AdminUsersClient({
           )}
         </TableBody>
       </Table>
+
+      <PaginationControls
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onPageChange={setPage}
+      />
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent>

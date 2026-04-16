@@ -2,6 +2,7 @@ import "server-only";
 
 import { query } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import type { PaginationParams } from "@/lib/pagination";
 
 // ---------------------------------------------------------------------------
 // Types / DTOs
@@ -66,22 +67,33 @@ async function requireStaffUser() {
 // Read operations
 // ---------------------------------------------------------------------------
 
-/** List all checkouts with joined work & user info (staff only). */
-export async function getAllCheckouts(): Promise<CheckoutDTO[]> {
+/** List all checkouts with joined work & user info (staff only), paginated. */
+export async function getAllCheckouts(
+    params: PaginationParams
+): Promise<{ rows: CheckoutDTO[]; total: number }> {
     await requireStaffUser();
 
     const result = await query(
         `SELECT c.id, c.work_id, c.user_id, c.checked_out_at, c.due_date,
                 c.returned_at, c.reminder_sent_at, c.extension_status, c.created_at, c.updated_at,
                 w.title AS work_title,
-                u.name AS user_name, u.email AS user_email
+                u.name AS user_name, u.email AS user_email,
+                COUNT(*) OVER() AS total_count
          FROM checkouts c
          JOIN works w ON w.id = c.work_id
          JOIN users u ON u.id = c.user_id
-         ORDER BY c.created_at DESC`
+         ORDER BY c.created_at DESC
+         LIMIT $1 OFFSET $2`,
+        [params.pageSize, params.offset]
     );
 
-    return result.rows as CheckoutDTO[];
+    const total = Number(result.rows[0]?.total_count ?? 0);
+    const rows = result.rows.map((r: Record<string, unknown>) => {
+        const { total_count: _ignored, ...rest } = r;
+        return rest;
+    }) as unknown as CheckoutDTO[];
+
+    return { rows, total };
 }
 
 /** Get a single checkout by ID with joined work & user info (staff only). */
@@ -389,7 +401,10 @@ export interface PopularWorkDTO {
  * Public — no auth required.
  * Optionally filter by tag (genre) when tagId is provided.
  */
-export async function getPopularWorks(tagId?: string): Promise<PopularWorkDTO[]> {
+export async function getPopularWorks(
+    pagination: PaginationParams,
+    tagId?: string
+): Promise<{ rows: PopularWorkDTO[]; total: number }> {
     const conditions: string[] = [];
     const values: unknown[] = [];
     let paramIndex = 1;
@@ -405,23 +420,32 @@ export async function getPopularWorks(tagId?: string): Promise<PopularWorkDTO[]>
     const whereClause =
         conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
+    const paginatedValues = [...values, pagination.pageSize, pagination.offset];
+
     const result = await query(
         `SELECT w.id, w.title, w.date_published, w.publisher,
                 w.lccn, w.isbn_10, w.isbn_13, w.media_type, w.number_of_pages,
                 w.language, w.location, w.call_number,
                 (w.cover IS NOT NULL) as has_cover,
                 w.updated_at,
-                COALESCE(COUNT(c.id), 0)::int AS checkout_count
+                COALESCE(COUNT(c.id), 0)::int AS checkout_count,
+                COUNT(*) OVER() AS total_count
          FROM works w
          LEFT JOIN checkouts c ON c.work_id = w.id
          ${tagJoin} ${whereClause}
          GROUP BY w.id
-         ORDER BY checkout_count DESC
-         LIMIT 50`,
-        values.length > 0 ? values : undefined
+         ORDER BY checkout_count DESC, w.id ASC
+         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+        paginatedValues
     );
 
-    return result.rows as PopularWorkDTO[];
+    const total = Number(result.rows[0]?.total_count ?? 0);
+    const rows = result.rows.map((r: Record<string, unknown>) => {
+        const { total_count: _ignored, ...rest } = r;
+        return rest;
+    }) as unknown as PopularWorkDTO[];
+
+    return { rows, total };
 }
 
 /**

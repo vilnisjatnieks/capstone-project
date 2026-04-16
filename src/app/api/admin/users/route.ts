@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAllUsers, createUser } from "@/lib/data/users";
+import { parsePageParams, buildPaginatedResponse } from "@/lib/pagination";
 
 function mapErrorToResponse(error: unknown): NextResponse {
   const message =
@@ -19,10 +20,12 @@ function mapErrorToResponse(error: unknown): NextResponse {
   return NextResponse.json({ error: message }, { status: 500 });
 }
   
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const users = await getAdminAllUsers();
-    return NextResponse.json(users);
+    const { searchParams } = new URL(request.url);
+    const params = parsePageParams(searchParams, 20);
+    const { rows, total } = await getAdminAllUsers(params);
+    return NextResponse.json(buildPaginatedResponse(rows, total, params));
   } catch (error) {
     return mapErrorToResponse(error);
   }
